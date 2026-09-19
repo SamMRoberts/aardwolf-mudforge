@@ -1,0 +1,45 @@
+{
+  "schemaVersion": 1,
+  "name": "Aardwolf for MudForge",
+  "description": "Clean-room Aardwolf framework and plugins for MudForge.",
+  "plugins": [
+    {
+      "id": "aardwolf-core",
+      "name": "Aardwolf Core",
+      "version": "0.1.0",
+      "author": "Sam Roberts",
+      "description": "Shared Aardwolf GMCP negotiation, validated session data, and diagnostics.",
+      "category": "development",
+      "tags": [
+        "aardwolf",
+        "framework",
+        "gmcp"
+      ],
+      "downloadUrl": "files/aardwolf-core.lua",
+      "format": "lua",
+      "sha256": "109daba6f25992c3d6b9a31a229e214e36d1c17ad5479994dd5c454836f32c17",
+      "size": 30042,
+      "license": "MIT",
+      "lastUpdated": "2026-09-19T00:00:00Z",
+      "featured": true
+    }
+  ],
+  "libraries": [
+    {
+      "name": "aardwolf-core-api",
+      "version": "0.1.0",
+      "author": "Sam Roberts",
+      "description": "Consumer API for the Aardwolf Core MudForge plugin.",
+      "downloadUrl": "libs/aardwolf-core-api.lua",
+      "sha256": "662b0d1579fb844709f2608364a636e0002f67f33c04ff30d2b7581adf186d8c",
+      "size": 12466,
+      "license": "MIT",
+      "tags": [
+        "aardwolf",
+        "framework",
+        "api"
+      ],
+      "lastUpdated": "2026-09-19T00:00:00Z"
+    }
+  ]
+}
