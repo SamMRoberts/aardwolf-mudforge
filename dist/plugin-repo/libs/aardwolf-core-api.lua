@@ -1,6 +1,6 @@
 library = {
   name = "aardwolf-core-api",
-  version = "0.2.0",
+  version = "0.2.1",
   description = "Consumer data and managed-window API for the Aardwolf Core MudForge plugin.",
   author = "Sam Roberts",
   license = "MIT",
@@ -110,10 +110,10 @@ local ui_api = nil
 local windows = {}
 
 local function stack_contains(stack, value)
-  -- MudForge transpiles tables to JavaScript; keep identity in an array instead
-  -- of using a table value as a key in a second table.
+  -- MudForge tables have reference identity and no metatables. Keep ancestors
+  -- in an array so this matches the plugin's restricted builtin subset.
   for index = 1, #stack do
-    if rawequal(stack[index], value) then return true end
+    if stack[index] == value then return true end
   end
   return false
 end

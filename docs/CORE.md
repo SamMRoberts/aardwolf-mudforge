@@ -21,7 +21,7 @@ visible as a diagnostic until a user action or declaration change retries it.
 ## Dependency handshake
 
 The plugin contract version is the integer `1`; plugin and library release
-versions are independently reported as `0.2.0`. Consumers initialize the
+versions are independently reported as `0.2.1`. Consumers initialize the
 library with their stable plugin id, minimum protocol, package set, and only
 the host functions the library needs.
 

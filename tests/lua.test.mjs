@@ -15,7 +15,7 @@ const referenceSource = read("examples/aardwolf-ui-consumer.lua");
 function runLua(source, label) {
   const state = lauxlib.luaL_newstate();
   lualib.luaL_openlibs(state);
-  const status = lauxlib.luaL_dostring(state, to_luastring(source));
+  const status = lauxlib.luaL_dostring(state, to_luastring(`rawequal = nil\n${source}`));
   if (status !== lua.LUA_OK) {
     const message = to_jsstring(lua.lua_tostring(state, -1));
     assert.fail(`${label}: ${message}`);
@@ -32,10 +32,10 @@ test("plugin, library, and reference consumer parse as Lua 5.1", () => {
   }
 });
 
-test("copy guards use transpiler-safe identity stacks", () => {
+test("copy guards use MudForge plugin-scope builtins", () => {
   for (const [name, source] of [["plugin", coreSource], ["library", librarySource]]) {
     assert.doesNotMatch(source, /seen\s*\[\s*value\s*\]/, `${name} must not key a seen table by another table`);
-    assert.match(source, /rawequal\s*\(/, `${name} compares ancestor identity directly`);
+    assert.doesNotMatch(source, /\brawequal\s*\(/, `${name} must not call the unavailable rawequal global`);
   }
 });
 
