@@ -1,14 +1,14 @@
 plugin = {
   id = "aardwolf-core",
   name = "Aardwolf Core",
-  version = "0.2.1",
+  version = "0.3.0",
   author = "Sam Roberts",
   description = "Shared Aardwolf data, managed windows, visual design, and diagnostics.",
   settings = { saveState = true },
 }
 
 local PROTOCOL_VERSION = 1
-local API_VERSION = "0.2.1"
+local API_VERSION = "0.3.0"
 local UI_VERSION = 1
 local SETTINGS_TABLE = "aardwolf:core:settings"
 local MAX_DIAGNOSTICS = 50
@@ -81,6 +81,35 @@ local CHAR_SCHEMAS = {
     trains = "integer", pracs = "integer", qpearned = "integer",
   },
 }
+local GROUP_SCHEMA = {
+  groupname = "string", leader = "string", created = "string", status = "string",
+  count = "integer", kills = "integer", exp = "integer",
+}
+local GROUP_MEMBER_INFO_SCHEMA = {
+  hp = "integer", mhp = "integer", mn = "integer", mmn = "integer",
+  mv = "integer", mmv = "integer", align = "integer", tnl = "integer",
+  qt = "integer", qs = "integer", lvl = "integer", here = "integer",
+}
+local COMM_GROUPS = { "channel", "tick", "quest", "repop" }
+local COMM_PACKAGES = {
+  channel = "Comm.Channel",
+  tick = "Comm.Tick",
+  quest = "Comm.Quest",
+  repop = "Comm.Repop",
+}
+local COMM_SCHEMAS = {
+  channel = { chan = "string", msg = "message", player = "string" },
+  tick = {},
+  quest = {
+    action = "string", targ = "string", target = "string", room = "string",
+    area = "string", status = "string", timer = "integer", wait = "integer",
+    time = "integer", qp = "integer", tierqp = "integer", pracs = "integer",
+    hardcore = "integer", opk = "integer", trains = "integer", tp = "integer",
+    lucky = "integer", double = "integer", daily = "integer", totqp = "integer",
+    gold = "integer", completed = "integer",
+  },
+  repop = { zone = "string" },
+}
 
 local initialized = false
 local connected = false
@@ -103,7 +132,8 @@ local ui_window_order = {}
 local ui_window_actions = {}
 local char_state = {}
 local room_state = nil
-local freshness = { char = {}, room = false }
+local group_state = nil
+local freshness = { char = {}, room = false, group = false }
 local counters = {
   accepted = 0,
   rejected = 0,
@@ -129,6 +159,12 @@ local function valid_string(value, limit)
   return type(value) == "string"
     and #value <= (limit or 4096)
     and not string.find(value, "[%z\1-\31\127]")
+end
+
+local function valid_message(value)
+  -- Aardwolf can deliver channel colors as ANSI or raw color codes. Preserve
+  -- either bounded representation while still refusing embedded NUL bytes.
+  return type(value) == "string" and #value <= 16384 and not string.find(value, "%z")
 end
 
 local function valid_classes(value)
@@ -250,6 +286,7 @@ local function control_center_body()
       <div class="aw-label">Consumers</div><div class="aw-value" data-mud-bind="consumers">none</div>
       <div class="aw-label">Fresh Char groups</div><div class="aw-value" data-mud-bind="charFresh">none</div>
       <div class="aw-label">Fresh Room</div><div class="aw-value" data-mud-bind="roomFresh">no</div>
+      <div class="aw-label">Fresh Group</div><div class="aw-value" data-mud-bind="groupFresh">no</div>
       <div class="aw-label">Counters</div><div class="aw-value" data-mud-bind="counters">none</div>
       <div class="aw-label">Log level</div><div class="aw-value" data-mud-bind="logLevel">info</div>
     </div></section>
@@ -309,6 +346,7 @@ local function render()
     consumers = #consumer_parts > 0 and table.concat(consumer_parts, " | ") or "none",
     charFresh = #fresh_groups > 0 and table.concat(fresh_groups, ", ") or "none",
     roomFresh = freshness.room and "yes" or "no",
+    groupFresh = freshness.group and "yes" or "no",
     counters = string.format("accepted %d, rejected %d, negotiations %d, failures %d, refreshes %d",
       counters.accepted, counters.rejected, counters.negotiations,
       counters.negotiationFailures, counters.refreshes),
@@ -344,7 +382,8 @@ end
 local function clear_live_state(reason)
   char_state = {}
   room_state = nil
-  freshness = { char = {}, room = false }
+  group_state = nil
+  freshness = { char = {}, room = false, group = false }
   update_sequence = 0
   emit_copy(EVENT_RESET, {
     protocol = PROTOCOL_VERSION,
@@ -353,6 +392,24 @@ local function clear_live_state(reason)
     session = session_number,
   })
   render()
+end
+
+local function normalize_known_fields(data, schema, prefix)
+  local normalized = {}
+  for field, expected in pairs(schema) do
+    local value = data[field]
+    if value ~= nil then
+      if expected == "integer" and not finite_integer(value) then
+        return nil, (prefix or "") .. field .. " must be a finite exact integer"
+      elseif expected == "string" and not valid_string(value) then
+        return nil, (prefix or "") .. field .. " must be a bounded control-free string"
+      elseif expected == "message" and not valid_message(value) then
+        return nil, (prefix or "") .. field .. " must be bounded text without NUL bytes"
+      end
+      normalized[field] = value
+    end
+  end
+  return normalized, nil
 end
 
 local function normalize_char(group, data)
@@ -413,6 +470,50 @@ local function normalize_room(data)
       end
     end
   end
+  return normalized, raw_or_error, nil
+end
+
+local function normalize_group(data)
+  if type(data) ~= "table" then return nil, nil, "payload is not a table" end
+  local ok_raw, raw_or_error = pcall(safe_raw, data)
+  if not ok_raw then return nil, nil, tostring(raw_or_error) end
+  local normalized, problem = normalize_known_fields(data, GROUP_SCHEMA)
+  if not normalized then return nil, nil, problem end
+  if data.members ~= nil then
+    if type(data.members) ~= "table" then return nil, nil, "members must be a table" end
+    normalized.members = {}
+    for index, member in pairs(data.members) do
+      if not finite_integer(index) or index < 1 then
+        return nil, nil, "member indexes must be positive integers"
+      end
+      if type(member) ~= "table" then return nil, nil, "member must be a table" end
+      local normalized_member = {}
+      if member.name ~= nil then
+        if not valid_string(member.name) then
+          return nil, nil, "member.name must be a bounded control-free string"
+        end
+        normalized_member.name = member.name
+      end
+      if member.info ~= nil then
+        if type(member.info) ~= "table" then return nil, nil, "member.info must be a table" end
+        local normalized_info, info_problem = normalize_known_fields(
+          member.info, GROUP_MEMBER_INFO_SCHEMA, "member.info."
+        )
+        if not normalized_info then return nil, nil, info_problem end
+        normalized_member.info = normalized_info
+      end
+      normalized.members[index] = normalized_member
+    end
+  end
+  return normalized, raw_or_error, nil
+end
+
+local function normalize_comm(group, data)
+  if type(data) ~= "table" then return nil, nil, "payload is not a table" end
+  local ok_raw, raw_or_error = pcall(safe_raw, data)
+  if not ok_raw then return nil, nil, tostring(raw_or_error) end
+  local normalized, problem = normalize_known_fields(data, COMM_SCHEMAS[group])
+  if not normalized then return nil, nil, problem end
   return normalized, raw_or_error, nil
 end
 
@@ -481,6 +582,56 @@ local function handle_room(data)
     session = session_number,
     sequence = update_sequence,
   })
+  render()
+end
+
+local function handle_group(data)
+  ensure_session_from_update()
+  local normalized, raw, problem = normalize_group(data)
+  if not normalized then
+    counters.rejected = counters.rejected + 1
+    add_diagnostic("error", "invalid-group", problem)
+    return
+  end
+  update_sequence = update_sequence + 1
+  counters.accepted = counters.accepted + 1
+  group_state = { normalized = normalized, raw = raw, sequence = update_sequence }
+  freshness.group = true
+  emit_copy("aardwolf.core.group.updated", {
+    protocol = PROTOCOL_VERSION,
+    package = "Group",
+    normalized = normalized,
+    raw = raw,
+    fresh = true,
+    sessionId = session_id,
+    session = session_number,
+    sequence = update_sequence,
+  })
+  render()
+end
+
+local function handle_comm(group, data)
+  ensure_session_from_update()
+  local normalized, raw, problem = normalize_comm(group, data)
+  if not normalized then
+    counters.rejected = counters.rejected + 1
+    add_diagnostic("error", "invalid-comm-" .. group, problem)
+    return
+  end
+  update_sequence = update_sequence + 1
+  counters.accepted = counters.accepted + 1
+  local payload = {
+    protocol = PROTOCOL_VERSION,
+    package = COMM_PACKAGES[group],
+    group = group,
+    normalized = normalized,
+    raw = raw,
+    sessionId = session_id,
+    session = session_number,
+    sequence = update_sequence,
+  }
+  emit_copy("aardwolf.core.comm.updated", payload)
+  emit_copy("aardwolf.core.comm." .. group, payload)
   render()
 end
 
@@ -653,7 +804,9 @@ local function registration_response(consumer_id, ok, code, message)
     apiVersion = API_VERSION,
     capabilities = {
       Char = true,
+      Comm = true,
       Room = true,
+      Group = true,
       negotiation = true,
       storage = true,
       ui = { version = UI_VERSION, html = true, canvas = true, windowControl = true },
@@ -788,6 +941,19 @@ local function status_snapshot()
 end
 
 local function data_snapshot(path)
+  if path == "group" then
+    if not group_state then return nil, "group data is not fresh" end
+    return {
+      protocol = PROTOCOL_VERSION,
+      package = "Group",
+      normalized = copy(group_state.normalized),
+      raw = copy(group_state.raw),
+      fresh = freshness.group,
+      sessionId = session_id,
+      session = session_number,
+      sequence = group_state.sequence,
+    }, nil
+  end
   if path == "room" or path == "room.info" then
     if not room_state then return nil, "room data is not fresh" end
     return {
@@ -966,6 +1132,11 @@ local function register_gmcp()
     onGMCPUpdate(CHAR_PACKAGES[current], function(data) handle_char(current, data) end)
   end
   onGMCPUpdate("Room.Info", handle_room)
+  onGMCPUpdate("Group", handle_group)
+  for _, group in ipairs(COMM_GROUPS) do
+    local current = group
+    onGMCPUpdate(COMM_PACKAGES[current], function(data) handle_comm(current, data) end)
+  end
 end
 
 local function command(args)

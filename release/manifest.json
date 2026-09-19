@@ -2,7 +2,7 @@
   "schemaVersion": 1,
   "name": "Aardwolf for MudForge",
   "description": "Clean-room Aardwolf framework and plugins for MudForge.",
-  "version": "0.2.1",
+  "version": "0.3.0",
   "releasedAt": "2026-09-19T00:00:00Z",
   "packageId": "com.samroberts.aardwolf-core",
   "packageName": "Aardwolf Core",

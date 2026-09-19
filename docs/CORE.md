@@ -21,7 +21,7 @@ visible as a diagnostic until a user action or declaration change retries it.
 ## Dependency handshake
 
 The plugin contract version is the integer `1`; plugin and library release
-versions are independently reported as `0.2.1`. Consumers initialize the
+versions are independently reported as `0.3.0`. Consumers initialize the
 library with their stable plugin id, minimum protocol, package set, and only
 the host functions the library needs.
 
@@ -45,11 +45,18 @@ Core subscribes to:
 - `Char.Status`
 - `Char.Worth`
 - `Room.Info`
+- `Group`
+- `Comm.Channel`
+- `Comm.Tick`
+- `Comm.Quest`
+- `Comm.Repop`
 
 Every accepted update publishes a normalized table containing documented
 fields and a bounded raw table that may contain safe unknown fields. Known
 numeric fields must be finite exact integers. Known strings are bounded and
-must not contain control characters. Room exits and coordinates are validated
+must not contain control characters. The bounded `Comm.Channel.msg` field
+retains either ANSI or raw Aardwolf color encoding but rejects NUL bytes. Room
+exits, coordinates, Group members, and documented Comm fields are validated
 recursively.
 
 An invalid update is rejected atomically. It increments the rejected counter,
@@ -60,6 +67,11 @@ stored on disk. Defensive copies track ancestor identity with a linear stack,
 which accepts ordinary nested GMCP objects while still rejecting genuine
 recursive tables in MudForge's JavaScript-transpiled runtime.
 
+Each accepted `Group` packet replaces the complete prior Group snapshot,
+including its member list. This prevents members who have left from lingering.
+`Comm.*` packets are transient events: Core does not retain, persist, or replay
+channel messages, ticks, quest packets, or repop notifications.
+
 ### Topics
 
 `core.on(topic, callback)` accepts:
@@ -69,18 +81,28 @@ recursive tables in MudForge's JavaScript-transpiled runtime.
 - `char.base`, `char.vitals`, `char.stats`, `char.maxstats`, `char.status`,
   `char.worth`
 - `room` or `room.info`
+- `group`
+- `comm.updated`, `comm.channel`, `comm.tick`, `comm.quest`, `comm.repop`
 
 The library gives each consumer callback a defensive copy. Update payloads
 include `protocol`, `sessionId`, `session`, `sequence`, `fresh`, `normalized`,
 and `raw`; character updates also include `group`.
 
+Group updates also include `package = "Group"` and `fresh = true`. Comm updates
+include their canonical `package`, subtype `group`, session metadata,
+`normalized`, and `raw`, but deliberately omit `fresh` because they are not
+snapshots. Every accepted Comm packet is published to both `comm.updated` and
+its subtype topic.
+
 `core.get("char.vitals")` and the other character paths return the latest
 fresh snapshot. `core.get("room")` and `core.get("room.info")` return the room
-snapshot. Missing or stale data returns `nil, error`; it never invents zeros or
-empty strings.
+snapshot, while `core.get("group")` returns the latest complete Group snapshot.
+Comm paths are event-only and do not have snapshots. Missing, stale, or
+unsupported data returns `nil, error`; it never invents zeros or empty strings.
 
 `core.status()` returns versions, connection and session state, negotiated
-packages, declarations, freshness, counters, diagnostics, and log level.
+packages, declarations, Char/Room/Group freshness, counters, diagnostics, and
+log level.
 
 `core.refresh({ Char = true, Room = true })` requests fresh data through Core.
 `core.renegotiate()` explicitly resends the package union, subject to Core's

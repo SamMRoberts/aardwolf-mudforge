@@ -15,8 +15,8 @@ on("aardwolf.core.consumer.declare", function(payload)
     code = payload.minProtocol <= 1 and nil or "unsupported-protocol",
     message = payload.minProtocol <= 1 and nil or "too new",
     protocol = 1,
-    version = "0.2.1",
-    apiVersion = "0.2.1",
+    version = "0.3.0",
+    apiVersion = "0.3.0",
   })
 end)
 
@@ -25,7 +25,7 @@ on("aardwolf.core.request", function(payload)
   request_count = request_count + 1
   local data = nil
   if payload.kind == "status" then data = { protocol = 1, connected = true }
-  elseif payload.kind == "snapshot" then data = { normalized = { hp = 99 }, raw = { hp = 99 }, fresh = true }
+  elseif payload.kind == "snapshot" then data = { path = payload.path, normalized = { hp = 99 }, raw = { hp = 99 }, fresh = true }
   elseif payload.kind == "refresh" then data = { requested = payload.packages }
   elseif payload.kind == "renegotiate" then data = { protocol = 1 } end
   emit("aardwolf.core.response", {
@@ -62,6 +62,9 @@ TEST.assert_equal(status.protocol, 1, "status response")
 local snapshot, snapshot_error = core.get("char.vitals")
 TEST.assert_nil(snapshot_error, "snapshot error")
 TEST.assert_equal(snapshot.normalized.hp, 99, "snapshot response")
+local group_snapshot, group_snapshot_error = core.get("group")
+TEST.assert_nil(group_snapshot_error, "group snapshot error")
+TEST.assert_equal(group_snapshot.path, "group", "group snapshot path forwarded")
 local refreshed, refresh_error = core.refresh({ Char = true, Room = true })
 TEST.assert_nil(refresh_error, "refresh error")
 TEST.assert_true(refreshed.requested.Room, "refresh package forwarded")
@@ -70,7 +73,7 @@ TEST.assert_nil(invalid_refresh, "non-refreshable package rejected")
 TEST.assert_equal(invalid_refresh_error.code, "invalid-refresh-package", "refresh package error")
 local renegotiated = core.renegotiate()
 TEST.assert_equal(renegotiated.protocol, 1, "renegotiation response")
-TEST.assert_equal(request_count, 4, "requests routed synchronously")
+TEST.assert_equal(request_count, 5, "requests routed synchronously")
 
 local observed = nil
 core.on("char.vitals", function(payload)
@@ -81,6 +84,28 @@ local source = { normalized = { hp = 77 } }
 emit("aardwolf.core.char.vitals", source)
 TEST.assert_equal(observed.normalized.hp, 1, "consumer callback receives data")
 TEST.assert_equal(source.normalized.hp, 77, "consumer receives a defensive copy")
+
+local group_observed = nil
+local comm_observed = nil
+local channel_observed = nil
+core.on("group", function(payload) group_observed = payload end)
+core.on("comm.updated", function(payload) comm_observed = payload end)
+core.on("comm.channel", function(payload) channel_observed = payload end)
+for _, topic in ipairs({ "comm.tick", "comm.quest", "comm.repop" }) do
+  local topic_ok, topic_error = core.on(topic, function() end)
+  TEST.assert_true(topic_ok, topic .. " topic is available")
+  TEST.assert_nil(topic_error, topic .. " topic error")
+end
+local group_source = { normalized = { count = 1 } }
+local comm_source = { package = "Comm.Channel", normalized = { chan = "gossip" } }
+emit("aardwolf.core.group.updated", group_source)
+emit("aardwolf.core.comm.updated", comm_source)
+emit("aardwolf.core.comm.channel", comm_source)
+group_observed.normalized.count = 2
+channel_observed.normalized.chan = "changed"
+TEST.assert_equal(group_source.normalized.count, 1, "group topic receives a defensive copy")
+TEST.assert_equal(comm_observed.normalized.chan, "gossip", "generic Comm topic is available")
+TEST.assert_equal(comm_source.normalized.chan, "gossip", "Comm topic receives a defensive copy")
 
 local saved, save_error = core.storage.save("preferences", 2, { enabled = true }, "world")
 TEST.assert_true(saved, "world storage save")
