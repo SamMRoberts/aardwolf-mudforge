@@ -1,14 +1,14 @@
 plugin = {
   id = "aardwolf-core",
   name = "Aardwolf Core",
-  version = "0.4.0",
+  version = "0.4.1",
   author = "Sam Roberts",
   description = "Shared Aardwolf data, managed windows, visual design, and diagnostics.",
   settings = { saveState = true },
 }
 
 local PROTOCOL_VERSION = 1
-local API_VERSION = "0.4.0"
+local API_VERSION = "0.4.1"
 local UI_VERSION = 1
 local SETTINGS_TABLE = "aardwolf:core:settings"
 local MAX_DIAGNOSTICS = 50

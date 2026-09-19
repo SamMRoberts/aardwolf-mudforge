@@ -28,13 +28,13 @@ test("release build is deterministic and catalogue hashes exact bytes", () => {
     for (const output of [first, second]) {
       execFileSync("python3", ["tools/build_release.py", "--out", output], { cwd: root, stdio: "pipe" });
     }
-    const packageSentinel = path.join(first, "aardwolf-core-0.4.0.mfp");
+    const packageSentinel = path.join(first, "aardwolf-core-0.4.1.mfp");
     fs.writeFileSync(packageSentinel, "native-package-sentinel");
     execFileSync("python3", ["tools/build_release.py", "--out", first], { cwd: root, stdio: "pipe" });
     assert.equal(fs.readFileSync(packageSentinel, "utf8"), "native-package-sentinel");
     const firstFiles = files(first);
     const secondFiles = files(second);
-    const generatedNames = [...firstFiles.keys()].filter((name) => name !== "aardwolf-core-0.4.0.mfp").sort();
+    const generatedNames = [...firstFiles.keys()].filter((name) => name !== "aardwolf-core-0.4.1.mfp").sort();
     assert.deepEqual(generatedNames, [...secondFiles.keys()].sort());
     for (const name of generatedNames) assert.deepEqual(firstFiles.get(name), secondFiles.get(name), name);
 
@@ -56,13 +56,13 @@ test("release build is deterministic and catalogue hashes exact bytes", () => {
     assert.deepEqual(corePlugin, fs.readFileSync(path.join(root, "src/plugins/aardwolf-core.lua")));
     assert.deepEqual(chatPlugin, fs.readFileSync(path.join(root, "src/plugins/aardwolf-chat.lua")));
     assert.deepEqual(library, fs.readFileSync(path.join(root, "src/libs/aardwolf-core-api.lua")));
-    assert.equal(coreRecord.version, "0.4.0");
-    assert.equal(chatRecord.version, "0.4.0");
-    assert.equal(index.libraries[0].version, "0.4.0");
+    assert.equal(coreRecord.version, "0.4.1");
+    assert.equal(chatRecord.version, "0.4.1");
+    assert.equal(index.libraries[0].version, "0.4.1");
     assert.deepEqual(packageInput.plugins.map((plugin) => plugin.id), ["aardwolf-core", "aardwolf-chat"]);
     assert.deepEqual(packageInput.libraries.map((library) => library.name), ["aardwolf-core-api"]);
     assert.equal(packageInput.packageId, "com.samroberts.aardwolf-core");
-    assert.equal(packageInput.version, "0.4.0");
+    assert.equal(packageInput.version, "0.4.1");
     assert.equal(packageInput.minClientVersion, "1.2.2454");
     assert.equal([...firstFiles.keys()].some((name) => name.includes("aardwolf-ui-consumer")), false);
   } finally {

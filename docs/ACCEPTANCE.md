@@ -34,7 +34,7 @@ named disposable world and record the selected-world baseline and backup before
 any import.
 
 1. Confirm the disposable client is MudForge 1.2.2454 or newer. Install the
-   repository library and both plugins; verify displayed version 0.4.0.
+   repository library and both plugins; verify displayed version 0.4.1.
 2. Load the non-distributed reference consumer. Reload, disable, and re-enable
    Core and the consumer independently. Confirm one control center, two
    reference windows, and one callback per action; no stale registry rows or
@@ -64,12 +64,12 @@ any import.
    default and that loopback sees one on/off control command per lifecycle.
 10. Create the atomic package through **Settings → Packages → Create Package**,
    including exactly `aardwolf-core`, `aardwolf-chat`, and `aardwolf-core-api`
-   with package id `com.samroberts.aardwolf-core`, version 0.4.0, and minimum
+   with package id `com.samroberts.aardwolf-core`, version 0.4.1, and minimum
    client 1.2.2454.
-11. Save the export as `dist/aardwolf-core-0.4.0.mfp`, then run:
+11. Save the export as `dist/aardwolf-core-0.4.1.mfp`, then run:
 
    ```bash
-   python3 tools/build_release.py --verify-package dist/aardwolf-core-0.4.0.mfp
+   python3 tools/build_release.py --verify-package dist/aardwolf-core-0.4.1.mfp
    ```
 
 12. Import, update, and uninstall that package in the disposable world. Confirm

@@ -1,7 +1,7 @@
 plugin = {
   id = "aardwolf-chat",
   name = "Aardwolf Chat",
-  version = "0.4.0",
+  version = "0.4.1",
   author = "Sam Roberts",
   description = "Configurable receive-only Aardwolf chat tabs powered by Aardwolf Core.",
   settings = { saveState = true },
@@ -834,8 +834,8 @@ local function activate()
   return finish_activation()
 end
 
-local function tab_command(arguments)
-  local operation, rest = string.match(arguments, "^(%S+)%s*(.-)%s*$")
+local function tab_command(command_text)
+  local operation, rest = string.match(command_text, "^(%S+)%s*(.-)%s*$")
   operation = operation and string.lower(operation) or ""
   if operation == "add" then return add_tab(rest) end
   local id, value = string.match(rest, "^(%S+)%s*(.-)%s*$")
@@ -847,8 +847,8 @@ local function tab_command(arguments)
   return nil, "Usage: awchat tab add <label> | rename <id> <label> | channels <id> <list> | move <id> up|down | delete <id>"
 end
 
-local function command(arguments)
-  local input = trim(arguments or "")
+local function command(command_text)
+  local input = trim(command_text or "")
   local action, rest = string.match(input, "^(%S+)%s*(.-)%s*$")
   action = action and string.lower(action) or ""
   local normalized_rest = string.lower(rest or "")
