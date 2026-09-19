@@ -1,6 +1,6 @@
 library = {
   name = "aardwolf-core-api",
-  version = "0.2.1",
+  version = "0.3.0",
   description = "Consumer data and managed-window API for the Aardwolf Core MudForge plugin.",
   author = "Sam Roberts",
   license = "MIT",
@@ -33,6 +33,12 @@ local TOPICS = {
   ["char.worth"] = "aardwolf.core.char.worth",
   ["room"] = "aardwolf.core.room.updated",
   ["room.info"] = "aardwolf.core.room.updated",
+  ["group"] = "aardwolf.core.group.updated",
+  ["comm.updated"] = "aardwolf.core.comm.updated",
+  ["comm.channel"] = "aardwolf.core.comm.channel",
+  ["comm.tick"] = "aardwolf.core.comm.tick",
+  ["comm.quest"] = "aardwolf.core.comm.quest",
+  ["comm.repop"] = "aardwolf.core.comm.repop",
 }
 local ALLOWED_PACKAGES = { Core = true, Char = true, Comm = true, Room = true, Group = true }
 

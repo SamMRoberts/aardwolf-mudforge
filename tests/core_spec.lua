@@ -4,9 +4,15 @@ TEST.assert_equal(TEST.widgets["widget-1"].visible, false, "widget starts hidden
 TEST.assert_true(string.find(TEST.widgets["widget-1"].properties.content, "aw%-root") ~= nil, "control center uses shared document")
 TEST.assert_equal(TEST.themeCalls, 0, "app theme is not registered automatically")
 TEST.assert_equal(#TEST.gmcpHandlers["Char.Vitals"], 1, "one vitals handler")
+TEST.assert_equal(#TEST.gmcpHandlers["Group"], 1, "one group handler")
+for _, package_name in ipairs({ "Comm.Channel", "Comm.Tick", "Comm.Quest", "Comm.Repop" }) do
+  TEST.assert_equal(#TEST.gmcpHandlers[package_name], 1, "one " .. package_name .. " handler")
+end
 init()
 TEST.assert_equal(TEST.nextWidget, 1, "duplicate init is ignored")
 TEST.assert_equal(#TEST.gmcpHandlers["Char.Vitals"], 1, "duplicate init does not subscribe")
+TEST.assert_equal(#TEST.gmcpHandlers["Group"], 1, "duplicate init does not subscribe Group")
+TEST.assert_equal(#TEST.gmcpHandlers["Comm.Channel"], 1, "duplicate init does not subscribe Comm")
 
 local registration = nil
 on("aardwolf.core.consumer.registration", function(payload)
@@ -15,9 +21,11 @@ end)
 emit("aardwolf.core.consumer.declare", {
   consumerId = "test-consumer",
   minProtocol = 1,
-  packages = { Char = true, Comm = true },
+  packages = { Char = true, Comm = true, Group = true },
 })
 TEST.assert_true(registration.ok, "consumer registration succeeds")
+TEST.assert_true(registration.capabilities.Comm, "registration advertises Comm handling")
+TEST.assert_true(registration.capabilities.Group, "registration advertises Group handling")
 TEST.assert_equal(registration.capabilities.ui.version, 1, "registration advertises UI contract")
 
 local ui_commands = {}
@@ -45,12 +53,13 @@ TEST.assert_nil(TEST.themes["aardwolf-dark"].terminalColors, "app theme leaves t
 TEST.connected = true
 onConnect("session-1")
 TEST.advance(150)
-TEST.assert_equal(#TEST.sentGMCP, 3, "negotiation and two bootstrap requests")
+TEST.assert_equal(#TEST.sentGMCP, 3, "only negotiation and two bootstrap requests are sent")
 TEST.assert_equal(TEST.sentGMCP[1].package, "Core.Supports.Set", "supports sent first")
 TEST.assert_equal(TEST.sentGMCP[1].data[1], "Core 1", "stable package order core")
 TEST.assert_equal(TEST.sentGMCP[1].data[2], "Char 1", "stable package order char")
 TEST.assert_equal(TEST.sentGMCP[1].data[3], "Comm 1", "consumer package included")
 TEST.assert_equal(TEST.sentGMCP[1].data[4], "Room 1", "baseline room included")
+TEST.assert_equal(TEST.sentGMCP[1].data[5], "Group 1", "consumer group package included")
 TEST.assert_equal(TEST.sentGMCP[2].package, "request char", "character refresh follows negotiation")
 TEST.assert_equal(TEST.sentGMCP[3].package, "request room", "room refresh follows negotiation")
 
@@ -122,6 +131,75 @@ TEST.fireGMCP("Room.Info", { num = 123, exits = { n = "124" } })
 room = TEST.request("test-consumer", "snapshot", { path = "room.info" })
 TEST.assert_equal(room.data.normalized.name, "A Test Room", "invalid room preserves prior accepted data")
 
+local group_event = nil
+on("aardwolf.core.group.updated", function(payload) group_event = payload end)
+TEST.fireGMCP("Group", {
+  groupname = "Testers", leader = "Tester", created = "19 Sep 12:00",
+  status = "Private", count = 2, kills = 4, exp = 500,
+  members = {
+    { name = "Tester", info = { hp = 100, mhp = 100, mn = 80, mmn = 90, mv = 70, mmv = 75, align = 0, tnl = 20, qt = 0, qs = 0, lvl = 10, here = 1 } },
+    { name = "Friend", info = { hp = 90, mhp = 100, mn = 70, mmn = 90, mv = 60, mmv = 75, align = 100, tnl = 30, qt = 5, qs = 1, lvl = 10, here = 0 } },
+  },
+  future = "retained raw",
+})
+TEST.assert_equal(group_event.package, "Group", "group event identifies its package")
+TEST.assert_equal(group_event.normalized.members[2].name, "Friend", "group members normalized")
+TEST.assert_nil(group_event.normalized.future, "unknown group field omitted from normalized data")
+TEST.assert_equal(group_event.raw.future, "retained raw", "unknown group field retained in raw data")
+group_event.normalized.members[1].name = "changed"
+local group_snapshot = TEST.request("test-consumer", "snapshot", { path = "group" })
+TEST.assert_true(group_snapshot.ok, "fresh group snapshot succeeds")
+TEST.assert_equal(group_snapshot.data.normalized.members[1].name, "Tester", "group snapshot is isolated from listeners")
+
+TEST.fireGMCP("Group", {
+  groupname = "Testers", count = 1,
+  members = { { name = "Tester", info = { hp = 95, mhp = 100, here = 1 } } },
+})
+group_snapshot = TEST.request("test-consumer", "snapshot", { path = "group" })
+TEST.assert_equal(group_snapshot.data.normalized.count, 1, "new group snapshot replaces old header values")
+TEST.assert_nil(group_snapshot.data.normalized.members[2], "group replacement drops departed members")
+local accepted_group_sequence = group_snapshot.data.sequence
+TEST.fireGMCP("Group", { members = { { name = "Tester", info = { hp = "95" } } } })
+group_snapshot = TEST.request("test-consumer", "snapshot", { path = "group" })
+TEST.assert_equal(group_snapshot.data.sequence, accepted_group_sequence, "invalid group leaves prior snapshot intact")
+
+local comm_all = {}
+local channel_event = nil
+local tick_event = nil
+local quest_event = nil
+local repop_event = nil
+on("aardwolf.core.comm.updated", function(payload) table.insert(comm_all, payload) end)
+on("aardwolf.core.comm.channel", function(payload) channel_event = payload end)
+on("aardwolf.core.comm.tick", function(payload) tick_event = payload end)
+on("aardwolf.core.comm.quest", function(payload) quest_event = payload end)
+on("aardwolf.core.comm.repop", function(payload) repop_event = payload end)
+local colored_message = string.char(27) .. "[31mYou gossip 'Testing'"
+TEST.fireGMCP("Comm.Channel", { chan = "gossip", msg = colored_message, player = "Tester", future = "kept" })
+TEST.assert_equal(channel_event.normalized.chan, "gossip", "channel normalized")
+TEST.assert_equal(channel_event.normalized.msg, colored_message, "ANSI channel text is preserved")
+TEST.assert_equal(channel_event.raw.future, "kept", "channel raw fields retained")
+TEST.assert_equal(comm_all[#comm_all].sequence, channel_event.sequence, "generic and subtype Comm events share sequence")
+channel_event.normalized.chan = "changed"
+TEST.assert_equal(comm_all[#comm_all].normalized.chan, "gossip", "Comm listeners receive defensive copies")
+TEST.fireGMCP("Comm.Tick", {})
+TEST.assert_equal(tick_event.package, "Comm.Tick", "tick event delivered")
+TEST.fireGMCP("Comm.Quest", { action = "start", targ = "a swamp ape", room = "Swamp Ape Enclosure", area = "Aardwolf Zoological Park", timer = 52 })
+TEST.assert_equal(quest_event.normalized.timer, 52, "quest event normalized")
+TEST.fireGMCP("Comm.Repop", { zone = "aylor" })
+TEST.assert_equal(repop_event.normalized.zone, "aylor", "repop event normalized")
+TEST.assert_equal(#comm_all, 4, "all valid Comm packets emit the generic event")
+local no_comm_snapshot = TEST.request("test-consumer", "snapshot", { path = "comm.channel" })
+TEST.assert_equal(no_comm_snapshot.ok, false, "Comm packets are event-only")
+local comm_count_before_invalid = #comm_all
+TEST.fireGMCP("Comm.Channel", { chan = 7, msg = "bad" })
+TEST.fireGMCP("Comm.Quest", { action = "fail", wait = "15" })
+local comm_cycle = {}
+comm_cycle.self = comm_cycle
+TEST.fireGMCP("Comm.Repop", { zone = "aylor", future = comm_cycle })
+TEST.assert_equal(#comm_all, comm_count_before_invalid, "invalid Comm packets do not emit events")
+TEST.assert_nil(TEST.tables.world["aardwolf:core:group"], "live Group data is not persisted")
+TEST.assert_nil(TEST.tables.world["aardwolf:core:comm"], "transient Comm data is not persisted")
+
 local sent_before = #TEST.sentGMCP
 TEST.fireGMCP("Char.Base", { name = "Tester", classes = "03", level = 10 })
 TEST.advance(2000)
@@ -150,6 +228,8 @@ TEST.assert_equal(stale.ok, false, "disconnect clears character freshness")
 local status = TEST.request("test-consumer", "status")
 TEST.assert_equal(status.data.connected, false, "disconnect reported")
 TEST.assert_equal(status.data.freshness.room, false, "room freshness cleared")
+TEST.assert_equal(status.data.freshness.group, false, "group freshness cleared")
+TEST.assert_equal(TEST.request("test-consumer", "snapshot", { path = "group" }).ok, false, "disconnect clears group snapshot")
 
 TEST.sentGMCP = {}
 TEST.sendGMCPResult = false
@@ -161,6 +241,13 @@ TEST.advance(1100)
 TEST.assert_equal(#TEST.sentGMCP, 2, "failed negotiation receives exactly one retry")
 TEST.assert_equal(TEST.request("test-consumer", "status").data.counters.negotiationFailures, 2, "failed sends counted")
 TEST.assert_equal(TEST.request("test-consumer", "snapshot", { path = "char.vitals" }).ok, false, "new session cannot see old data")
+TEST.assert_equal(TEST.request("test-consumer", "snapshot", { path = "group" }).ok, false, "new session cannot see old group data")
+TEST.fireGMCP("Group", { groupname = "Second Session", count = 1, members = { { name = "New Tester" } } })
+local second_session_group = TEST.request("test-consumer", "snapshot", { path = "group" })
+TEST.assert_equal(second_session_group.data.sessionId, "session-2", "new group snapshot is scoped to the second session")
+TEST.assert_equal(second_session_group.data.normalized.members[1].name, "New Tester", "second session receives independent group data")
+TEST.fireGMCP("Comm.Repop", { zone = "second-session" })
+TEST.assert_equal(repop_event.sessionId, "session-2", "Comm events carry the second session id")
 TEST.sendGMCPResult = true
 onDisconnect("session-2")
 

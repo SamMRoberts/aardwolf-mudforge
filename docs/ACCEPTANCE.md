@@ -31,7 +31,7 @@ named disposable world and record the selected-world baseline and backup before
 any import.
 
 1. Confirm the disposable client is MudForge 1.2.2454 or newer. Install the
-   repository library and plugin; verify displayed version 0.2.1.
+   repository library and plugin; verify displayed version 0.3.0.
 2. Load the non-distributed reference consumer. Reload, disable, and re-enable
    Core and the consumer independently. Confirm one control center, two
    reference windows, and one callback per action; no stale registry rows or
@@ -50,14 +50,15 @@ any import.
    compare values and schema failures.
 7. Connect two isolated loopback sessions. Verify exact `Core.Supports.Set`
    ordering, one bootstrap refresh per connection, partial and malformed
-   packets, disconnect resets, declaration changes, and session isolation.
+   Char/Room/Group/Comm packets, replace-on-update Group membership, event-only
+   Comm delivery, disconnect resets, declaration changes, and session isolation.
 8. Create the atomic package through **Settings → Packages → Create Package**,
    including exactly `aardwolf-core` and `aardwolf-core-api` with package id
-   `com.samroberts.aardwolf-core`, version 0.2.1, and minimum client 1.2.2454.
-9. Save the export as `dist/aardwolf-core-0.2.1.mfp`, then run:
+   `com.samroberts.aardwolf-core`, version 0.3.0, and minimum client 1.2.2454.
+9. Save the export as `dist/aardwolf-core-0.3.0.mfp`, then run:
 
    ```bash
-   python3 tools/build_release.py --verify-package dist/aardwolf-core-0.2.1.mfp
+   python3 tools/build_release.py --verify-package dist/aardwolf-core-0.3.0.mfp
    ```
 
 10. Import, update, and uninstall that package in the disposable world. Confirm
@@ -66,10 +67,11 @@ any import.
 ## Connected Aardwolf acceptance
 
 Connected gameplay is a separate authorization boundary. When authorized,
-verify actual Aardwolf negotiation and delivery of all Char groups and
-Room.Info. Do not enable GMCP-only channels, tags, server debug, movement,
-chat output, or gameplay automation. Record live evidence separately from the
-offline and disposable-native results.
+verify actual Aardwolf negotiation and delivery of all Char groups, Room.Info,
+Group, Comm.Channel, Comm.Tick, Comm.Quest, and Comm.Repop. Do not enable
+GMCP-only channels, tags, server debug, movement, chat output, or gameplay
+automation. Record live evidence separately from the offline and
+disposable-native results.
 
 Cross-platform support is structural until each platform completes equivalent
 native checks.

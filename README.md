@@ -4,13 +4,14 @@ This repository contains a clean-room Aardwolf plugin framework for
 [MudForge](https://mudforge.org/). The framework consists of:
 
 - **Aardwolf Core** (`aardwolf-core`) — the sole owner of Aardwolf
-  `Core.Supports.Set`, validated `Char.*` and `Room.Info` session data, and
-  the control center for associated plugin windows and framework diagnostics.
+  `Core.Supports.Set`, validated `Char.*`, `Room.Info`, and `Group` session
+  data, transient `Comm.*` events, and the control center for associated plugin
+  windows and framework diagnostics.
 - **Aardwolf Core API** (`aardwolf-core-api`) — the shared library future
   Aardwolf plugins use for dependency checks, events, snapshots, refreshes,
   namespaced persistence, managed windows, and shared visual resources.
 
-Version 0.2.1 requires MudForge 1.2.2454. Offline checks do not prove native
+Version 0.3.0 requires MudForge 1.2.2454. Offline checks do not prove native
 rendering, transport, or persistence; the native target remains MudForge
 1.2.2454 on macOS.
 
