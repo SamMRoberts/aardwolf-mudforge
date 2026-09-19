@@ -141,24 +141,33 @@ local function valid_classes(value)
   return true
 end
 
-local function copy(value, seen)
+local function stack_contains(stack, value)
+  -- MudForge transpiles tables to JavaScript; keep identity in an array instead
+  -- of using a table value as a key in a second table.
+  for index = 1, #stack do
+    if rawequal(stack[index], value) then return true end
+  end
+  return false
+end
+
+local function copy(value, stack)
   if type(value) ~= "table" then return value end
-  seen = seen or {}
-  if seen[value] then error("cyclic table", 0) end
-  seen[value] = true
+  stack = stack or {}
+  if stack_contains(stack, value) then error("cyclic table", 0) end
+  stack[#stack + 1] = value
   local result = {}
   for key, item in pairs(value) do
     if type(item) == "table" then
-      result[key] = copy(item, seen)
+      result[key] = copy(item, stack)
     elseif item ~= nil then
       result[key] = item
     end
   end
-  seen[value] = nil
+  stack[#stack] = nil
   return result
 end
 
-local function bounded_copy(value, depth, budget, seen)
+local function bounded_copy(value, depth, budget, stack)
   local kind = type(value)
   if kind == "nil" or kind == "boolean" then return value end
   if kind == "number" then
@@ -174,8 +183,8 @@ local function bounded_copy(value, depth, budget, seen)
   end
   if kind ~= "table" then error("unsupported value type: " .. kind, 0) end
   if depth > 8 then error("nesting limit exceeded", 0) end
-  if seen[value] then error("cyclic table", 0) end
-  seen[value] = true
+  if stack_contains(stack, value) then error("cyclic table", 0) end
+  stack[#stack + 1] = value
   local result = {}
   for key, item in pairs(value) do
     budget.items = budget.items + 1
@@ -183,9 +192,9 @@ local function bounded_copy(value, depth, budget, seen)
     local key_kind = type(key)
     if key_kind ~= "string" and key_kind ~= "number" then error("unsupported key type", 0) end
     if key_kind == "string" and #key > 128 then error("key limit exceeded", 0) end
-    if item ~= nil then result[key] = bounded_copy(item, depth + 1, budget, seen) end
+    if item ~= nil then result[key] = bounded_copy(item, depth + 1, budget, stack) end
   end
-  seen[value] = nil
+  stack[#stack] = nil
   return result
 end
 

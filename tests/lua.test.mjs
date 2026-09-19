@@ -32,6 +32,13 @@ test("plugin, library, and reference consumer parse as Lua 5.1", () => {
   }
 });
 
+test("copy guards use transpiler-safe identity stacks", () => {
+  for (const [name, source] of [["plugin", coreSource], ["library", librarySource]]) {
+    assert.doesNotMatch(source, /seen\s*\[\s*value\s*\]/, `${name} must not key a seen table by another table`);
+    assert.match(source, /rawequal\s*\(/, `${name} compares ancestor identity directly`);
+  }
+});
+
 test("Core lifecycle, negotiation, validation, widget, and reset contract", () => {
   runLua(`${harness}\n${wrappedLibrary("core_api_for_plugin")}\nfunction require(name) if name == "aardwolf-core-api" then return core_api_for_plugin end error("missing library " .. tostring(name)) end\n${coreSource}\n${read("tests/core_spec.lua")}`, "core_spec.lua");
 });

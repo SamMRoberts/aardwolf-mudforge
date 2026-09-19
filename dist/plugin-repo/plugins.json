@@ -19,8 +19,8 @@
       ],
       "downloadUrl": "files/aardwolf-core.lua",
       "format": "lua",
-      "sha256": "71e984c9adbd9a78174e8dc87161452b99e295f472c41102b9c7ccbdc76455ee",
-      "size": 38353,
+      "sha256": "a7e82927e8227c09e72a5cc6d123a947817dd5d0d713a3544ae5999c06697dca",
+      "size": 38703,
       "license": "MIT",
       "lastUpdated": "2026-09-19T00:00:00Z",
       "featured": true
@@ -33,8 +33,8 @@
       "author": "Sam Roberts",
       "description": "Consumer data and managed-window API for the Aardwolf Core MudForge plugin.",
       "downloadUrl": "libs/aardwolf-core-api.lua",
-      "sha256": "9e292d922d594da3fd70cf0dc9b51e65264e00cf77cdf5ee461b2738b86672a2",
-      "size": 28641,
+      "sha256": "d6701272365bb2172fabce8daadac7850d76b559030afef0d4a45cf331ad23f8",
+      "size": 28963,
       "license": "MIT",
       "tags": [
         "aardwolf",

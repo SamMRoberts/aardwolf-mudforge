@@ -56,7 +56,9 @@ An invalid update is rejected atomically. It increments the rejected counter,
 emits a diagnostic, and leaves the prior accepted snapshot intact. Snapshots
 and freshness are cleared on connect, disconnect, cleanup, or a GMCP update
 that establishes a new session after a mid-session reload. They are never
-stored on disk.
+stored on disk. Defensive copies track ancestor identity with a linear stack,
+which accepts ordinary nested GMCP objects while still rejecting genuine
+recursive tables in MudForge's JavaScript-transpiled runtime.
 
 ### Topics
 

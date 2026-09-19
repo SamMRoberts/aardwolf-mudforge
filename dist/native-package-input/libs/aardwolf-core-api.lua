@@ -109,17 +109,26 @@ local available = false
 local ui_api = nil
 local windows = {}
 
-local function copy(value, seen)
+local function stack_contains(stack, value)
+  -- MudForge transpiles tables to JavaScript; keep identity in an array instead
+  -- of using a table value as a key in a second table.
+  for index = 1, #stack do
+    if rawequal(stack[index], value) then return true end
+  end
+  return false
+end
+
+local function copy(value, stack)
   if type(value) ~= "table" then return value end
-  seen = seen or {}
-  if seen[value] then error("cyclic table", 0) end
-  seen[value] = true
+  stack = stack or {}
+  if stack_contains(stack, value) then error("cyclic table", 0) end
+  stack[#stack + 1] = value
   local result = {}
   for key, item in pairs(value) do
-    if type(item) == "table" then result[key] = copy(item, seen)
+    if type(item) == "table" then result[key] = copy(item, stack)
     elseif item ~= nil then result[key] = item end
   end
-  seen[value] = nil
+  stack[#stack] = nil
   return result
 end
 
