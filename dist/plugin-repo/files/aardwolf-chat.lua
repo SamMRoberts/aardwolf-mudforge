@@ -1,7 +1,7 @@
 plugin = {
   id = "aardwolf-chat",
   name = "Aardwolf Chat",
-  version = "0.4.1",
+  version = "0.4.2",
   author = "Sam Roberts",
   description = "Configurable receive-only Aardwolf chat tabs powered by Aardwolf Core.",
   settings = { saveState = true },

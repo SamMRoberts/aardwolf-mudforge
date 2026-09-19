@@ -14,7 +14,7 @@ This repository contains a clean-room Aardwolf plugin framework for
   with configurable overlapping tabs, bounded opt-in history, unread state,
   and optional GMCP-only channel delivery.
 
-Version 0.4.1 requires MudForge 1.2.2454. Offline checks do not prove native
+Version 0.4.2 requires MudForge 1.2.2454. Offline checks do not prove native
 rendering, transport, or persistence; the native target remains MudForge
 1.2.2454 on macOS.
 
@@ -90,6 +90,9 @@ See [docs/CORE.md](docs/CORE.md) for the complete contract.
 editor. The default All, Tell, Group, Clan, Newbie, and Gossip tabs can be
 renamed, reordered, removed, or extended with custom channel identifiers.
 Messages may appear in multiple matching tabs.
+
+Core keeps `Comm` in its baseline negotiation even when this optional chat
+plugin is not installed, so MudForge's native GMCP chat tabs remain subscribed.
 
 History is memory-only by default. `awchat history on` opts into bounded
 per-world persistence. Main-console channel output also remains unchanged by

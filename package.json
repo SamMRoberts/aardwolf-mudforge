@@ -1,6 +1,6 @@
 {
   "name": "aardwolf-mudforge",
-  "version": "0.4.1",
+  "version": "0.4.2",
   "private": true,
   "description": "Aardwolf Core framework and configurable GMCP chat for MudForge",
   "type": "module",

@@ -211,7 +211,8 @@ TEST.advance(150)
 TEST.assert_equal(#TEST.sentGMCP, before_withdraw + 1, "withdrawal renegotiates the reduced union")
 TEST.assert_equal(TEST.sentGMCP[#TEST.sentGMCP].data[1], "Core 1", "reduced union retains Core")
 TEST.assert_equal(TEST.sentGMCP[#TEST.sentGMCP].data[2], "Char 1", "reduced union retains Char")
-TEST.assert_equal(TEST.sentGMCP[#TEST.sentGMCP].data[3], "Room 1", "reduced union retains Room")
+TEST.assert_equal(TEST.sentGMCP[#TEST.sentGMCP].data[3], "Comm 1", "reduced union retains Comm for native chat tabs")
+TEST.assert_equal(TEST.sentGMCP[#TEST.sentGMCP].data[4], "Room 1", "reduced union retains Room")
 
 local invalid_registration = nil
 on("aardwolf.core.consumer.registration", function(payload)
