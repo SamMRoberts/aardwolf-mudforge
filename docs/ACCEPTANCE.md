@@ -6,7 +6,10 @@ The repository's offline suite establishes:
 
 - Lua 5.1 syntax parsing for plugin and library sources.
 - Injected-API execution of lifecycle, negotiation, validation, resets,
-  request/response, widget state, dependency failures, and storage envelopes.
+  request/response, managed HTML/canvas windows, dependency failures, and
+  storage envelopes.
+- Reference-consumer execution covering bindings, actions, canvas redraw,
+  visibility, and cleanup.
 - Deterministic repository output with byte-exact source copies, hashes, sizes,
   identities, and versions.
 
@@ -27,27 +30,37 @@ Native work requires explicit approval before controlling MudForge. Use a
 named disposable world and record the selected-world baseline and backup before
 any import.
 
-1. Install the repository library and plugin; verify displayed version 0.1.0.
-2. Load, reload, disable, and re-enable. Confirm one widget, one command, and
-   one callback per source; no stale resources remain after disable.
-3. Exercise every button with mouse and keyboard. Verify bound text is escaped,
-   focus returns to the prompt, resizing works, and moved/resized geometry is
-   retained after reopen.
-4. Save world and global storage envelopes, restart the disposable world, and
+1. Confirm the disposable client is MudForge 1.2.2454 or newer. Install the
+   repository library and plugin; verify displayed version 0.2.0.
+2. Load the non-distributed reference consumer. Reload, disable, and re-enable
+   Core and the consumer independently. Confirm one control center, two
+   reference windows, and one callback per action; no stale registry rows or
+   widgets remain after consumer disable.
+3. Exercise every control-center and reference button with mouse and keyboard.
+   Verify bound text is escaped, focus returns to the prompt, HTML stays stable,
+   canvas redraws on resize, and moved/resized geometry is retained after
+   hide/show and reload.
+4. Verify individual and show-all/hide-all controls target only registered
+   windows. Close a window with native chrome, refresh the control center, and
+   confirm the reported visibility matches `widgetInfo`.
+5. Confirm no theme is registered or applied automatically. Use the explicit
+   action to register/apply Aardwolf Dark, verify Settings shows it as the
+   app-wide theme, and confirm the terminal palette is unchanged.
+6. Save world and global storage envelopes, restart the disposable world, and
    compare values and schema failures.
-5. Connect two isolated loopback sessions. Verify exact `Core.Supports.Set`
+7. Connect two isolated loopback sessions. Verify exact `Core.Supports.Set`
    ordering, one bootstrap refresh per connection, partial and malformed
    packets, disconnect resets, declaration changes, and session isolation.
-6. Create the atomic package through **Settings → Packages → Create Package**,
+8. Create the atomic package through **Settings → Packages → Create Package**,
    including exactly `aardwolf-core` and `aardwolf-core-api` with package id
-   `com.samroberts.aardwolf-core`, version 0.1.0, and minimum client 1.2.0.
-7. Save the export as `dist/aardwolf-core-0.1.0.mfp`, then run:
+   `com.samroberts.aardwolf-core`, version 0.2.0, and minimum client 1.2.2454.
+9. Save the export as `dist/aardwolf-core-0.2.0.mfp`, then run:
 
    ```bash
-   python3 tools/build_release.py --verify-package dist/aardwolf-core-0.1.0.mfp
+   python3 tools/build_release.py --verify-package dist/aardwolf-core-0.2.0.mfp
    ```
 
-8. Import, update, and uninstall that package in the disposable world. Confirm
+10. Import, update, and uninstall that package in the disposable world. Confirm
    unrelated worlds, data, plugins, maps, and layout remain unchanged.
 
 ## Connected Aardwolf acceptance

@@ -21,7 +21,7 @@ visible as a diagnostic until a user action or declaration change retries it.
 ## Dependency handshake
 
 The plugin contract version is the integer `1`; plugin and library release
-versions are independently reported as `0.1.0`. Consumers initialize the
+versions are independently reported as `0.2.0`. Consumers initialize the
 library with their stable plugin id, minimum protocol, package set, and only
 the host functions the library needs.
 
@@ -84,6 +84,79 @@ packages, declarations, freshness, counters, diagnostics, and log level.
 `core.renegotiate()` explicitly resends the package union, subject to Core's
 rate limit.
 
+## Managed windows and visual design
+
+Core UI contract version 1 supports HTML and canvas widgets on MudForge
+1.2.2454 or newer. Each associated plugin remains the MudForge owner of its
+widgets and callbacks. The API library provides consistent creation, styling,
+lifecycle, visibility, and registration; Core's control center brokers only
+validated show/hide commands.
+
+Consumers that need windows add an optional `ui` adapter to `core.init`:
+
+```lua
+ui = {
+  createWidget = createWidget,
+  setWidgetProperty = setWidgetProperty,
+  showWidget = showWidget,
+  hideWidget = hideWidget,
+  destroyWidget = destroyWidget,
+  setBoundValues = setBoundValues,
+  registerWidgetEvent = registerWidgetEvent,
+  unregisterWidgetEvent = unregisterWidgetEvent,
+  widgetInfo = widgetInfo,
+  focusPrompt = focusPrompt,
+}
+```
+
+Existing consumers may omit this table. Stateful UI calls then return
+`ui-unavailable`; data, events, requests, and storage remain available.
+
+### UI functions
+
+- `core.ui.create(config)` creates a uniquely named `html` or `canvas` window
+  and returns `{ name, widgetId, type }`. Initial `position`, `size`,
+  `visible`, `resizable`, and `scrollable` values are optional. Windows start
+  hidden and resizable by default.
+- `core.ui.show(name)`, `hide(name)`, `toggle(name)`, and `isVisible(name)`
+  control and inspect a managed window without changing its geometry.
+- `core.ui.bind(name, values)` updates HTML text, style, and attribute bindings
+  through MudForge's binding API without rebuilding the document. Binding keys
+  are stable names and values are bounded strings, finite numbers, or booleans.
+- `core.ui.on(name, event, callback)` registers actions, resize/move handlers,
+  and canvas pointer handlers. HTML actions return focus to the command prompt.
+- `core.ui.destroy(name)` unregisters callbacks, destroys the widget, and
+  withdraws it from Core. `core.cleanup()` destroys all remaining windows.
+- `core.ui.tokens()` returns a defensive copy of the canonical palette,
+  spacing, typography, focus, and radius values for canvas drawing or custom
+  layout.
+- `core.ui.document(content, { css = "..." })` wraps trusted static plugin
+  markup in the shared stylesheet. It is stateless and can be used before
+  `core.init`; external values must still use bindings.
+- `core.ui.appTheme()` returns the app-wide `aardwolf-dark` theme definition.
+  It deliberately omits `terminalColors`.
+
+Important errors include `ui-unavailable`, `invalid-window`, `window-exists`,
+and `unknown-window`. Window names use letters, digits, dots, dashes, and
+underscores and are registered with Core as `<consumerId>:<name>`.
+
+The shared HTML stylesheet exposes `.aw-root`, `.aw-title`, `.aw-heading`,
+`.aw-section`, `.aw-toolbar`, `.aw-grid`, `.aw-label`, `.aw-value`,
+`.aw-button` variants, `.aw-field`, `.aw-status`, `.aw-muted`, semantic status
+colors, `.aw-scroll`, and window-row helpers. Plugin-specific CSS is permitted
+only as trusted static source and should use these tokens and namespaced
+selectors.
+
+Core tracks window metadata only in memory. MudForge remains responsible for
+per-device position and size, and Core never moves or resizes an established
+window. The control center refreshes native visibility with `widgetInfo`, lists
+registered windows, and offers individual and show-all/hide-all controls.
+
+Applying the matching MudForge app theme is always an explicit control-center
+action. Core never registers or applies it during initialization, enablement,
+connection, or discovery. The action affects the app-wide interface and is
+persisted by MudForge, but leaves the user's terminal palette alone.
+
 ## Storage
 
 The library wraps MudForge `saveTable` and `loadTable` with keys of the form:
@@ -112,7 +185,8 @@ the consumer-id prefix mandatory. Live GMCP snapshots never use this storage.
 - Stable plugin id: `aardwolf-core`
 - Stable library name: `aardwolf-core-api`
 - Protocol: `1`
-- Minimum MudForge: `1.2.0`
+- UI contract: `1`
+- Minimum MudForge: `1.2.2454`
 - License: MIT
 
 Changing the plugin id or library name is breaking. A future incompatible

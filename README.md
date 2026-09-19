@@ -1,18 +1,18 @@
 # Aardwolf for MudForge
 
 This repository contains a clean-room Aardwolf plugin framework for
-[MudForge](https://mudforge.org/). The first release consists of:
+[MudForge](https://mudforge.org/). The framework consists of:
 
 - **Aardwolf Core** (`aardwolf-core`) — the sole owner of Aardwolf
   `Core.Supports.Set`, validated `Char.*` and `Room.Info` session data, and
-  framework diagnostics.
+  the control center for associated plugin windows and framework diagnostics.
 - **Aardwolf Core API** (`aardwolf-core-api`) — the shared library future
   Aardwolf plugins use for dependency checks, events, snapshots, refreshes,
-  and namespaced persistence.
+  namespaced persistence, managed windows, and shared visual resources.
 
-Version 0.1.0 targets documented MudForge 1.2 APIs. Offline checks do not prove
-native rendering, transport, or persistence; the initial native target is
-MudForge 1.2.2454 on macOS.
+Version 0.2.0 requires MudForge 1.2.2454. Offline checks do not prove native
+rendering, transport, or persistence; the native target remains MudForge
+1.2.2454 on macOS.
 
 ## Install
 
@@ -57,6 +57,7 @@ function init()
     getLoadedPlugins = getLoadedPlugins,
     saveTable = saveTable,
     loadTable = loadTable,
+    -- Add the optional ui table below when this plugin owns managed windows.
   })
   if not ok then
     echo("Aardwolf Core unavailable: " .. tostring(problem.message))
@@ -76,9 +77,48 @@ end
 
 See [docs/CORE.md](docs/CORE.md) for the complete contract.
 
+## Managed windows
+
+Associated plugins inject MudForge's widget functions through `core.init`, then
+create their own HTML or canvas widgets through `core.ui`. Core supplies the
+dark navy/gold design tokens, lifecycle, visibility controls, and central
+registry without taking ownership of the consumer's callbacks or saved layout.
+
+```lua
+local ok, problem = core.init({
+  pluginId = plugin.id,
+  minProtocol = 1,
+  packages = {},
+  on = on, off = off, emit = emit,
+  getLoadedPlugins = getLoadedPlugins,
+  saveTable = saveTable, loadTable = loadTable,
+  ui = {
+    createWidget = createWidget, setWidgetProperty = setWidgetProperty,
+    showWidget = showWidget, hideWidget = hideWidget,
+    destroyWidget = destroyWidget, setBoundValues = setBoundValues,
+    registerWidgetEvent = registerWidgetEvent,
+    unregisterWidgetEvent = unregisterWidgetEvent,
+    widgetInfo = widgetInfo, focusPrompt = focusPrompt,
+  },
+})
+
+local window = core.ui.create({
+  name = "status",
+  title = "Aardwolf Status",
+  type = "html",
+  content = [[<p data-mud-bind="message">Waiting</p>]],
+})
+core.ui.bind("status", { message = "Ready" })
+```
+
+Dynamic game and user values belong in bindings, not HTML or CSS strings. See
+the non-distributed [reference consumer](examples/aardwolf-ui-consumer.lua) for
+HTML actions, canvas drawing and resize handling, show/hide commands, and
+cleanup.
+
 ## Core commands
 
-- `awcore` — show the settings and diagnostics widget.
+- `awcore` — show the managed-window control center, settings, and diagnostics.
 - `awcore status` — connection, session, version, and package summary.
 - `awcore gmcp` — negotiated packages and consumer declarations.
 - `awcore refresh` — request fresh `Char.*` and `Room.Info` data.

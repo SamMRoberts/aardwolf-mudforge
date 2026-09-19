@@ -1,8 +1,8 @@
 {
   "name": "aardwolf-mudforge",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "private": true,
-  "description": "Clean-room Aardwolf plugin framework for MudForge",
+  "description": "Aardwolf data, managed-window, and visual-design framework for MudForge",
   "type": "module",
   "scripts": {
     "build": "python3 tools/build_release.py",

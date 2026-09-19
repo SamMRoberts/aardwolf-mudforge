@@ -1,14 +1,15 @@
 plugin = {
   id = "aardwolf-core",
   name = "Aardwolf Core",
-  version = "0.1.0",
+  version = "0.2.0",
   author = "Sam Roberts",
-  description = "Shared Aardwolf GMCP negotiation, validated session data, and diagnostics.",
+  description = "Shared Aardwolf data, managed windows, visual design, and diagnostics.",
   settings = { saveState = true },
 }
 
 local PROTOCOL_VERSION = 1
-local API_VERSION = "0.1.0"
+local API_VERSION = "0.2.0"
+local UI_VERSION = 1
 local SETTINGS_TABLE = "aardwolf:core:settings"
 local MAX_DIAGNOSTICS = 50
 local NEGOTIATION_DELAY_MS = 150
@@ -25,6 +26,13 @@ local EVENT_RESPONSE = "aardwolf.core.response"
 local EVENT_SESSION = "aardwolf.core.session"
 local EVENT_RESET = "aardwolf.core.reset"
 local EVENT_DIAGNOSTIC = "aardwolf.core.diagnostic"
+local EVENT_UI_DECLARE = "aardwolf.core.ui.window.declare"
+local EVENT_UI_WITHDRAW = "aardwolf.core.ui.window.withdraw"
+local EVENT_UI_STATE = "aardwolf.core.ui.window.state"
+local EVENT_UI_COMMAND = "aardwolf.core.ui.window.command"
+local EVENT_UI_QUERY = "aardwolf.core.ui.window.query"
+
+local ui_library_loaded, core_api = pcall(require, "aardwolf-core-api")
 
 local PACKAGE_ORDER = { "Core", "Char", "Comm", "Room", "Group" }
 local ALLOWED_PACKAGES = {
@@ -90,6 +98,9 @@ local widget = nil
 local log_level = "info"
 local diagnostics = {}
 local subscriptions = {}
+local ui_windows = {}
+local ui_window_order = {}
+local ui_window_actions = {}
 local char_state = {}
 local room_state = nil
 local freshness = { char = {}, room = false }
@@ -194,6 +205,69 @@ local function emit_copy(name, payload)
   emit(name, copy(payload))
 end
 
+local function ui_window_key(consumer_id, name)
+  return consumer_id .. ":" .. name
+end
+
+local function rebuild_ui_order()
+  ui_window_order = {}
+  for key in pairs(ui_windows) do ui_window_order[#ui_window_order + 1] = key end
+  table.sort(ui_window_order)
+end
+
+local function control_center_body()
+  ui_window_actions = {}
+  local rows = {}
+  for index, key in ipairs(ui_window_order) do
+    local show_action = "window-show-" .. tostring(index)
+    local hide_action = "window-hide-" .. tostring(index)
+    ui_window_actions[show_action] = { key = key, action = "show" }
+    ui_window_actions[hide_action] = { key = key, action = "hide" }
+    rows[#rows + 1] = string.format([[
+      <div class="aw-window-row">
+        <div><div><strong data-mud-bind="windowTitle%d">Managed window</strong></div>
+          <div class="aw-window-meta"><span data-mud-bind="windowOwner%d">consumer</span> · <span data-mud-bind="windowType%d">type</span> · <span data-mud-bind="windowVisible%d">hidden</span></div></div>
+        <div class="aw-toolbar"><button class="aw-button" type="button" data-mud-action="%s">Show</button><button class="aw-button" type="button" data-mud-action="%s">Hide</button></div>
+      </div>]], index, index, index, index, show_action, hide_action)
+  end
+  if #rows == 0 then rows[1] = [[<p class="aw-muted">No associated plugin windows are registered.</p>]] end
+  return [[
+    <h1 class="aw-title">Aardwolf Core</h1>
+    <section class="aw-section"><div class="aw-grid">
+      <div class="aw-label">Core / API</div><div class="aw-value"><span data-mud-bind="version">?</span> / <span data-mud-bind="apiVersion">?</span></div>
+      <div class="aw-label">Protocol</div><div class="aw-value" data-mud-bind="protocol">?</div>
+      <div class="aw-label">Connection</div><div class="aw-value"><span data-mud-bind="connection">Disconnected</span> · session <span data-mud-bind="session">none</span></div>
+      <div class="aw-label">Packages</div><div class="aw-value" data-mud-bind="packages">none</div>
+      <div class="aw-label">Consumers</div><div class="aw-value" data-mud-bind="consumers">none</div>
+      <div class="aw-label">Fresh Char groups</div><div class="aw-value" data-mud-bind="charFresh">none</div>
+      <div class="aw-label">Fresh Room</div><div class="aw-value" data-mud-bind="roomFresh">no</div>
+      <div class="aw-label">Counters</div><div class="aw-value" data-mud-bind="counters">none</div>
+      <div class="aw-label">Log level</div><div class="aw-value" data-mud-bind="logLevel">info</div>
+    </div></section>
+    <h2 class="aw-heading">Managed windows</h2>
+    <section class="aw-section">]] .. table.concat(rows) .. [[
+      <div class="aw-toolbar"><button class="aw-button" type="button" data-mud-action="windows-refresh">Refresh</button><button class="aw-button" type="button" data-mud-action="windows-show-all">Show all</button><button class="aw-button" type="button" data-mud-action="windows-hide-all">Hide all</button></div>
+    </section>
+    <h2 class="aw-heading">Appearance</h2>
+    <section class="aw-section"><p class="aw-muted">Applying Aardwolf Dark changes MudForge's app-wide theme. It does not replace your terminal color palette.</p><button class="aw-button aw-button--primary" type="button" data-mud-action="apply-theme">Apply Aardwolf Dark</button></section>
+    <h2 class="aw-heading">Diagnostics</h2>
+    <pre class="aw-status aw-scroll" data-mud-bind="diagnostics" role="status">No diagnostics.</pre>
+    <div class="aw-toolbar"><button class="aw-button" type="button" data-mud-action="refresh">Refresh GMCP</button><button class="aw-button" type="button" data-mud-action="renegotiate">Renegotiate</button><button class="aw-button" type="button" data-mud-action="clear">Clear diagnostics</button><button class="aw-button" type="button" data-mud-action="log-error">Log: errors</button><button class="aw-button" type="button" data-mud-action="log-info">Log: info</button><button class="aw-button" type="button" data-mud-action="log-debug">Log: debug</button><button class="aw-button" type="button" data-mud-action="hide">Hide</button></div>
+    <p class="aw-muted">Core never enables tags, GMCP-only channels, or server debug automatically.</p>
+  ]]
+end
+
+local function rebuild_core_widget()
+  if not widget or not ui_library_loaded or type(core_api) ~= "table" or type(core_api.ui) ~= "table" then return false end
+  local document, problem = core_api.ui.document(control_center_body())
+  if not document then
+    echo("Aardwolf Core UI error: " .. tostring(problem and problem.message or "could not compose document"))
+    return false
+  end
+  setWidgetProperty(widget, "content", document)
+  return true
+end
+
 local function render()
   if not widget then return end
   local consumer_parts = {}
@@ -216,7 +290,7 @@ local function render()
     end
   end
 
-  setBoundValues(widget, {
+  local bindings = {
     version = plugin.version,
     apiVersion = API_VERSION,
     protocol = tostring(PROTOCOL_VERSION),
@@ -231,7 +305,17 @@ local function render()
       counters.negotiationFailures, counters.refreshes),
     diagnostics = #diagnostic_parts > 0 and table.concat(diagnostic_parts, "\n") or "No diagnostics.",
     logLevel = log_level,
-  })
+  }
+  for index, key in ipairs(ui_window_order) do
+    local window = ui_windows[key]
+    if window then
+      bindings["windowTitle" .. tostring(index)] = window.title
+      bindings["windowOwner" .. tostring(index)] = window.consumerId
+      bindings["windowType" .. tostring(index)] = window.type
+      bindings["windowVisible" .. tostring(index)] = window.visible and "visible" or "hidden"
+    end
+  end
+  setBoundValues(widget, bindings)
 end
 
 local function add_diagnostic(level, code, message)
@@ -403,10 +487,28 @@ local function loaded_plugin_set()
   return loaded
 end
 
+local function remove_consumer_windows(consumer_id)
+  local changed = false
+  for key, window in pairs(ui_windows) do
+    if window.consumerId == consumer_id then
+      ui_windows[key] = nil
+      changed = true
+    end
+  end
+  if changed then
+    rebuild_ui_order()
+    rebuild_core_widget()
+    render()
+  end
+end
+
 local function reconcile_declarations()
   local loaded = loaded_plugin_set()
   for consumer_id, _ in pairs(declarations) do
-    if not loaded[consumer_id] then declarations[consumer_id] = nil end
+    if not loaded[consumer_id] then
+      declarations[consumer_id] = nil
+      remove_consumer_windows(consumer_id)
+    end
   end
 end
 
@@ -540,7 +642,13 @@ local function registration_response(consumer_id, ok, code, message)
     protocol = PROTOCOL_VERSION,
     version = plugin.version,
     apiVersion = API_VERSION,
-    capabilities = { Char = true, Room = true, negotiation = true, storage = true },
+    capabilities = {
+      Char = true,
+      Room = true,
+      negotiation = true,
+      storage = true,
+      ui = { version = UI_VERSION, html = true, canvas = true, windowControl = true },
+    },
   })
 end
 
@@ -562,10 +670,93 @@ local function on_withdraw(payload)
   if type(payload) ~= "table" or not valid_string(payload.consumerId, 128) then return end
   if declarations[payload.consumerId] then
     declarations[payload.consumerId] = nil
+    remove_consumer_windows(payload.consumerId)
     add_diagnostic("debug", "consumer-withdrew", payload.consumerId .. " withdrew its package declaration")
     schedule_negotiation(NEGOTIATION_DELAY_MS, false)
     render()
   end
+end
+
+local function valid_ui_window(payload, require_existing)
+  if type(payload) ~= "table" or not valid_string(payload.consumerId, 128)
+      or not valid_string(payload.name, 128) then return nil end
+  if require_existing then return ui_windows[ui_window_key(payload.consumerId, payload.name)] end
+  if not declarations[payload.consumerId] or not loaded_plugin_set()[payload.consumerId] then return nil end
+  if not valid_string(payload.title, 128) or (payload.type ~= "html" and payload.type ~= "canvas")
+      or type(payload.visible) ~= "boolean" then return nil end
+  return {
+    consumerId = payload.consumerId,
+    name = payload.name,
+    title = payload.title,
+    type = payload.type,
+    visible = payload.visible,
+  }
+end
+
+local function on_ui_declare(payload)
+  local window = valid_ui_window(payload, false)
+  if not window then return end
+  local key = ui_window_key(window.consumerId, window.name)
+  local membership_changed = ui_windows[key] == nil
+  ui_windows[key] = window
+  if membership_changed then
+    rebuild_ui_order()
+    rebuild_core_widget()
+  end
+  render()
+end
+
+local function on_ui_state(payload)
+  local window = valid_ui_window(payload, true)
+  if not window or type(payload.visible) ~= "boolean" then return end
+  window.visible = payload.visible
+  render()
+end
+
+local function on_ui_withdraw(payload)
+  local window = valid_ui_window(payload, true)
+  if not window then return end
+  ui_windows[ui_window_key(payload.consumerId, payload.name)] = nil
+  rebuild_ui_order()
+  rebuild_core_widget()
+  render()
+end
+
+local function send_ui_command(window, action)
+  if not window or (action ~= "show" and action ~= "hide") then return end
+  emit_copy(EVENT_UI_COMMAND, {
+    consumerId = window.consumerId,
+    name = window.name,
+    action = action,
+  })
+end
+
+local function query_ui_windows()
+  emit_copy(EVENT_UI_QUERY, {})
+  render()
+end
+
+local function apply_app_theme()
+  if not ui_library_loaded or type(core_api) ~= "table" or type(core_api.ui) ~= "table" then
+    add_diagnostic("error", "ui-library-missing", "Install aardwolf-core-api before applying the Aardwolf theme")
+    return
+  end
+  if type(registerTheme) ~= "function" or type(setTheme) ~= "function" then
+    add_diagnostic("error", "theme-api-missing", "MudForge 1.2.2454 or newer is required for app themes")
+    return
+  end
+  local theme = core_api.ui.appTheme()
+  local ok_register, theme_id = pcall(registerTheme, theme)
+  if not ok_register or type(theme_id) ~= "string" then
+    add_diagnostic("error", "theme-register-failed", "MudForge could not register Aardwolf Dark")
+    return
+  end
+  local ok_apply, applied = pcall(setTheme, theme_id)
+  if not ok_apply or applied ~= true then
+    add_diagnostic("error", "theme-apply-failed", "MudForge could not apply Aardwolf Dark")
+    return
+  end
+  add_diagnostic("info", "theme-applied", "Applied the app-wide Aardwolf Dark theme")
 end
 
 local function status_snapshot()
@@ -583,6 +774,7 @@ local function status_snapshot()
     counters = copy(counters),
     diagnostics = copy(diagnostics),
     logLevel = log_level,
+    windows = copy(ui_windows),
   }
 end
 
@@ -692,49 +884,36 @@ local function show_diagnostics()
 end
 
 local function create_core_widget()
+  if not ui_library_loaded or type(core_api) ~= "table" or type(core_api.ui) ~= "table" then
+    add_diagnostic("error", "ui-library-missing", "Install aardwolf-core-api to use the Core control center")
+    return
+  end
+  local tokens = core_api.ui.tokens()
   widget = createWidget({
     type = "html",
     name = "aardwolf-core-diagnostics",
-    title = "Aardwolf Core",
+    title = "Aardwolf Core Control Center",
     position = { x = 120, y = 100 },
-    size = { width = 620, height = 560 },
+    size = { width = 680, height = 680 },
     visible = false,
     resizable = true,
+    scrollable = true,
+    appearance = {
+      showTitleBar = true,
+      autoHideSettingsCog = true,
+      movable = true,
+      resizable = true,
+      titleTextColor = tokens.colors.primary,
+      backgroundColor = tokens.colors.background,
+      backgroundOpacity = 0.96,
+      borderColor = tokens.colors.border,
+      borderWidth = 1,
+      borderRadius = tokens.radius.medium,
+      borderStyle = "solid",
+    },
   })
-  setWidgetProperty(widget, "content", [[
-    <style>
-      body{box-sizing:border-box;margin:0;padding:14px;background:#111827;color:#e5e7eb;font:14px system-ui,sans-serif}
-      h1{font-size:18px;margin:0 0 12px;color:#f3c969}h2{font-size:14px;margin:16px 0 6px;color:#93c5fd}
-      dl{display:grid;grid-template-columns:150px 1fr;gap:5px 12px;margin:0}dt{color:#9ca3af}dd{margin:0;overflow-wrap:anywhere}
-      pre{white-space:pre-wrap;max-height:150px;overflow:auto;background:#0b1020;padding:9px;border:1px solid #374151}
-      .actions{display:flex;flex-wrap:wrap;gap:7px;margin-top:12px}button{font:inherit;padding:6px 10px;color:#f9fafb;background:#374151;border:1px solid #6b7280;border-radius:4px}
-      button:hover{background:#4b5563}button:focus-visible{outline:3px solid #f3c969;outline-offset:2px}.muted{color:#9ca3af}
-    </style>
-    <h1>Aardwolf Core</h1>
-    <dl>
-      <dt>Core / API</dt><dd><span data-mud-bind="version">?</span> / <span data-mud-bind="apiVersion">?</span></dd>
-      <dt>Protocol</dt><dd data-mud-bind="protocol">?</dd>
-      <dt>Connection</dt><dd><span data-mud-bind="connection">Disconnected</span> · session <span data-mud-bind="session">none</span></dd>
-      <dt>Packages</dt><dd data-mud-bind="packages">none</dd>
-      <dt>Consumers</dt><dd data-mud-bind="consumers">none</dd>
-      <dt>Fresh Char groups</dt><dd data-mud-bind="charFresh">none</dd>
-      <dt>Fresh Room</dt><dd data-mud-bind="roomFresh">no</dd>
-      <dt>Counters</dt><dd data-mud-bind="counters">none</dd>
-      <dt>Log level</dt><dd data-mud-bind="logLevel">info</dd>
-    </dl>
-    <h2>Diagnostics</h2>
-    <pre data-mud-bind="diagnostics" role="status">No diagnostics.</pre>
-    <div class="actions">
-      <button type="button" data-mud-action="refresh">Refresh GMCP</button>
-      <button type="button" data-mud-action="renegotiate">Renegotiate</button>
-      <button type="button" data-mud-action="clear">Clear diagnostics</button>
-      <button type="button" data-mud-action="log-error">Log: errors</button>
-      <button type="button" data-mud-action="log-info">Log: info</button>
-      <button type="button" data-mud-action="log-debug">Log: debug</button>
-      <button type="button" data-mud-action="hide">Hide</button>
-    </div>
-    <p class="muted">Core never enables tags, GMCP-only channels, or server debug automatically.</p>
-  ]])
+  rebuild_ui_order()
+  rebuild_core_widget()
   registerWidgetEvent(widget, "action", function(event)
     if type(event) ~= "table" then return end
     if event.action == "refresh" then refresh_packages({ Char = true, Room = true })
@@ -743,7 +922,17 @@ local function create_core_widget()
     elseif event.action == "log-error" then set_log_level("error")
     elseif event.action == "log-info" then set_log_level("info")
     elseif event.action == "log-debug" then set_log_level("debug")
-    elseif event.action == "hide" then hideWidget(widget) end
+    elseif event.action == "windows-refresh" then query_ui_windows()
+    elseif event.action == "windows-show-all" then
+      for _, window in pairs(ui_windows) do send_ui_command(window, "show") end
+    elseif event.action == "windows-hide-all" then
+      for _, window in pairs(ui_windows) do send_ui_command(window, "hide") end
+    elseif event.action == "apply-theme" then apply_app_theme()
+    elseif event.action == "hide" then hideWidget(widget)
+    elseif ui_window_actions[event.action] then
+      local action = ui_window_actions[event.action]
+      send_ui_command(ui_windows[action.key], action.action)
+    end
     focusPrompt()
   end)
   render()
@@ -757,6 +946,9 @@ local function register_core_events()
   listen(EVENT_DECLARE, on_declare)
   listen(EVENT_WITHDRAW, on_withdraw)
   listen(EVENT_REQUEST, on_request)
+  listen(EVENT_UI_DECLARE, on_ui_declare)
+  listen(EVENT_UI_WITHDRAW, on_ui_withdraw)
+  listen(EVENT_UI_STATE, on_ui_state)
 end
 
 local function register_gmcp()
@@ -769,7 +961,14 @@ end
 
 local function command(args)
   args = string.lower(args or "")
-  if args == "" then showWidget(widget); render()
+  if args == "" then
+    if widget then
+      showWidget(widget)
+      query_ui_windows()
+      render()
+    else
+      echo("Aardwolf Core control center is unavailable; install aardwolf-core-api.")
+    end
   elseif args == "status" then show_status()
   elseif args == "gmcp" then show_gmcp()
   elseif args == "refresh" then
@@ -847,4 +1046,7 @@ function cleanup()
   subscriptions = {}
   if widget then destroyWidget(widget) end
   widget = nil
+  ui_windows = {}
+  ui_window_order = {}
+  ui_window_actions = {}
 end
