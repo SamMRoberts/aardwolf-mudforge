@@ -15,8 +15,8 @@ on("aardwolf.core.consumer.declare", function(payload)
     code = payload.minProtocol <= 1 and nil or "unsupported-protocol",
     message = payload.minProtocol <= 1 and nil or "too new",
     protocol = 1,
-    version = "0.2.0",
-    apiVersion = "0.2.0",
+    version = "0.2.1",
+    apiVersion = "0.2.1",
   })
 end)
 

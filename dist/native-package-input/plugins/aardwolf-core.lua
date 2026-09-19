@@ -1,14 +1,14 @@
 plugin = {
   id = "aardwolf-core",
   name = "Aardwolf Core",
-  version = "0.2.0",
+  version = "0.2.1",
   author = "Sam Roberts",
   description = "Shared Aardwolf data, managed windows, visual design, and diagnostics.",
   settings = { saveState = true },
 }
 
 local PROTOCOL_VERSION = 1
-local API_VERSION = "0.2.0"
+local API_VERSION = "0.2.1"
 local UI_VERSION = 1
 local SETTINGS_TABLE = "aardwolf:core:settings"
 local MAX_DIAGNOSTICS = 50
@@ -142,10 +142,10 @@ local function valid_classes(value)
 end
 
 local function stack_contains(stack, value)
-  -- MudForge transpiles tables to JavaScript; keep identity in an array instead
-  -- of using a table value as a key in a second table.
+  -- MudForge tables have reference identity and no metatables. Keep ancestors
+  -- in an array because plugin scope does not expose the rawequal builtin.
   for index = 1, #stack do
-    if rawequal(stack[index], value) then return true end
+    if stack[index] == value then return true end
   end
   return false
 end

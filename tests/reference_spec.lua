@@ -4,8 +4,8 @@ on("aardwolf.core.consumer.declare", function(payload)
     consumerId = payload.consumerId,
     ok = true,
     protocol = 1,
-    version = "0.2.0",
-    apiVersion = "0.2.0",
+    version = "0.2.1",
+    apiVersion = "0.2.1",
     capabilities = { ui = { version = 1 } },
   })
 end)

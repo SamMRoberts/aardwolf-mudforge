@@ -10,7 +10,7 @@ This repository contains a clean-room Aardwolf plugin framework for
   Aardwolf plugins use for dependency checks, events, snapshots, refreshes,
   namespaced persistence, managed windows, and shared visual resources.
 
-Version 0.2.0 requires MudForge 1.2.2454. Offline checks do not prove native
+Version 0.2.1 requires MudForge 1.2.2454. Offline checks do not prove native
 rendering, transport, or persistence; the native target remains MudForge
 1.2.2454 on macOS.
 
