@@ -7,8 +7,11 @@ Aardwolf replaces its supported-package set rather than merging separate
 senders, so dependent plugins declare requirements through the API library and
 must not send their own supports set.
 
-The baseline is always `Core`, `Char`, and `Room`. Consumers may add `Comm` and
-`Group`. Core sends the stable union once after connection and again only when
+The baseline is always `Core`, `Char`, `Comm`, and `Room`. `Comm` remains in the
+baseline because MudForge's native chat tabs cannot declare framework package
+requirements; the exclusive supports-set owner must not unsubscribe them when
+the optional Aardwolf Chat plugin is absent. Consumers may add `Group`. Core
+sends the stable union once after connection and again only when
 the union changes or the user explicitly requests renegotiation. It never
 automatically enables `gmcpchannels`, tags, or server debug.
 
@@ -21,7 +24,7 @@ visible as a diagnostic until a user action or declaration change retries it.
 ## Dependency handshake
 
 The plugin contract version is the integer `1`; plugin and library release
-versions are independently reported as `0.4.1`. Consumers initialize the
+versions are independently reported as `0.4.2`. Consumers initialize the
 library with their stable plugin id, minimum protocol, package set, and only
 the host functions the library needs.
 

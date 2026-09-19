@@ -1,14 +1,14 @@
 plugin = {
   id = "aardwolf-core",
   name = "Aardwolf Core",
-  version = "0.4.1",
+  version = "0.4.2",
   author = "Sam Roberts",
   description = "Shared Aardwolf data, managed windows, visual design, and diagnostics.",
   settings = { saveState = true },
 }
 
 local PROTOCOL_VERSION = 1
-local API_VERSION = "0.4.1"
+local API_VERSION = "0.4.2"
 local UI_VERSION = 1
 local SETTINGS_TABLE = "aardwolf:core:settings"
 local MAX_DIAGNOSTICS = 50
@@ -42,7 +42,10 @@ local ALLOWED_PACKAGES = {
   Room = true,
   Group = true,
 }
-local BASELINE_PACKAGES = { Core = true, Char = true, Room = true }
+-- MudForge's native chat tabs cannot declare framework dependencies. Keep Comm
+-- in the baseline so this exclusive Supports.Set owner does not unsubscribe the
+-- client feature when no framework chat consumer is installed.
+local BASELINE_PACKAGES = { Core = true, Char = true, Comm = true, Room = true }
 
 local CHAR_GROUPS = { "base", "vitals", "stats", "maxstats", "status", "worth" }
 local CHAR_PACKAGES = {

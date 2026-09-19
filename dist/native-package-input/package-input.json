@@ -2,19 +2,19 @@
   "formatVersion": 1,
   "packageId": "com.samroberts.aardwolf-core",
   "name": "Aardwolf Core",
-  "version": "0.4.1",
+  "version": "0.4.2",
   "minClientVersion": "1.2.2454",
   "plugins": [
     {
       "id": "aardwolf-core",
       "source": "plugins/aardwolf-core.lua",
-      "sha256": "0528376fac1fa7212b64b29c07fd851baa1e5d2130a1a5418ff239a62ffa4b95",
-      "size": 45197
+      "sha256": "4aa70a5c8f64299fd865a046dacfbf16379c4daef1aafa9083a11d115c1b2f79",
+      "size": 45435
     },
     {
       "id": "aardwolf-chat",
       "source": "plugins/aardwolf-chat.lua",
-      "sha256": "7880e4afd62dd69d21bf6224edd6877c4e67941a9434ab58df77c6e5f348ea50",
+      "sha256": "68ed4f9e072ea7714952d2a5315febe9f5ae7a2dbb66131be139d2442d79bde1",
       "size": 33974
     }
   ],
@@ -22,7 +22,7 @@
     {
       "name": "aardwolf-core-api",
       "source": "libs/aardwolf-core-api.lua",
-      "sha256": "f0957cd1c5b792934863d47edbb2e927f23bcafd0e469354efccd0a502ae8c70",
+      "sha256": "9bae330f2c809e0fee2bc83ce92c57f2fe26dfa1bde7920af47ff93e220ad1f5",
       "size": 29256
     }
   ],
