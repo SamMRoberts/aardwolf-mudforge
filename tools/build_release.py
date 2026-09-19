@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Build deterministic MudForge repository artifacts for Aardwolf Core."""
+"""Build deterministic repository artifacts for the Aardwolf MudForge suite."""
 
 from __future__ import annotations
 
@@ -52,13 +52,28 @@ def json_bytes(value: object) -> bytes:
 
 
 def validate_manifest(manifest: dict) -> None:
-    if manifest.get("schemaVersion") != 1:
-        raise BuildError("release manifest schemaVersion must be 1")
+    if manifest.get("schemaVersion") != 2:
+        raise BuildError("release manifest schemaVersion must be 2")
     version = manifest.get("version")
     if not isinstance(version, str) or not re.fullmatch(r"\d+\.\d+\.\d+", version):
         raise BuildError("release version must be semantic x.y.z")
     if manifest.get("minClientVersion") != "1.2.2454":
-        raise BuildError("minimum MudForge version must remain 1.2.2454 for Core 0.3")
+        raise BuildError("minimum MudForge version must remain 1.2.2454")
+    plugins = manifest.get("plugins")
+    if not isinstance(plugins, list) or not plugins:
+        raise BuildError("release manifest must contain at least one plugin")
+    ids = [item.get("id") for item in plugins if isinstance(item, dict)]
+    if len(ids) != len(plugins) or len(set(ids)) != len(ids):
+        raise BuildError("release plugin ids must be present and unique")
+    categories = {
+        "widgets", "automation", "ui-enhancement", "mapping", "combat",
+        "roleplay", "utilities", "themes", "development",
+    }
+    for item in plugins:
+        if item.get("category") not in categories:
+            raise BuildError(f"unsupported plugin category: {item.get('category')}")
+        if not isinstance(item.get("source"), str) or not isinstance(item.get("tags"), list):
+            raise BuildError(f"plugin source and tags are required: {item.get('id')}")
 
 
 def build_files(output: Path) -> dict[PurePosixPath, bytes]:
@@ -66,52 +81,59 @@ def build_files(output: Path) -> dict[PurePosixPath, bytes]:
     validate_manifest(manifest)
     version = manifest["version"]
 
-    plugin_path = ROOT / manifest["plugin"]["source"]
     library_path = ROOT / manifest["library"]["source"]
-    plugin_bytes = plugin_path.read_bytes()
     library_bytes = library_path.read_bytes()
     if len(library_bytes) > 256 * 1024:
         raise BuildError("library exceeds MudForge's 256 KB repository limit")
 
-    plugin_meta = lua_metadata(plugin_bytes.decode("utf-8"), "plugin")
     library_meta = lua_metadata(library_bytes.decode("utf-8"), "library")
-    expected_plugin = manifest["plugin"]["id"]
     expected_library = manifest["library"]["name"]
-    if plugin_meta.get("id") != expected_plugin:
-        raise BuildError("plugin id differs from release manifest")
     if library_meta.get("name") != expected_library:
         raise BuildError("library name differs from release manifest")
-    if plugin_meta.get("version") != version or library_meta.get("version") != version:
-        raise BuildError("plugin, library, and release versions must match")
-    if plugin_meta.get("author") != "Sam Roberts" or library_meta.get("author") != "Sam Roberts":
-        raise BuildError("author metadata must be Sam Roberts")
+    if library_meta.get("version") != version:
+        raise BuildError("library and release versions must match")
+    if library_meta.get("author") != "Sam Roberts":
+        raise BuildError("library author metadata must be Sam Roberts")
     if library_meta.get("license") != "MIT":
         raise BuildError("library metadata must declare MIT")
 
-    plugin_download = f"files/{expected_plugin}.lua"
     library_download = f"libs/{expected_library}.lua"
+    plugin_records = []
+    plugin_sources: list[tuple[dict, dict[str, str], bytes]] = []
+    for declared in manifest["plugins"]:
+        plugin_path = ROOT / declared["source"]
+        plugin_bytes = plugin_path.read_bytes()
+        plugin_meta = lua_metadata(plugin_bytes.decode("utf-8"), "plugin")
+        expected_plugin = declared["id"]
+        if plugin_meta.get("id") != expected_plugin:
+            raise BuildError(f"plugin id differs from release manifest: {expected_plugin}")
+        if plugin_meta.get("version") != version:
+            raise BuildError(f"plugin and release versions must match: {expected_plugin}")
+        if plugin_meta.get("author") != "Sam Roberts":
+            raise BuildError(f"plugin author metadata must be Sam Roberts: {expected_plugin}")
+        plugin_download = f"files/{expected_plugin}.lua"
+        plugin_records.append({
+            "id": expected_plugin,
+            "name": plugin_meta["name"],
+            "version": version,
+            "author": plugin_meta["author"],
+            "description": plugin_meta["description"],
+            "category": declared["category"],
+            "tags": declared["tags"],
+            "downloadUrl": plugin_download,
+            "format": "lua",
+            "sha256": digest(plugin_bytes),
+            "size": len(plugin_bytes),
+            "license": "MIT",
+            "lastUpdated": manifest["releasedAt"],
+            "featured": declared.get("featured", False),
+        })
+        plugin_sources.append((declared, plugin_meta, plugin_bytes))
     index = {
         "schemaVersion": 1,
         "name": manifest["name"],
         "description": manifest["description"],
-        "plugins": [
-            {
-                "id": expected_plugin,
-                "name": plugin_meta["name"],
-                "version": version,
-                "author": plugin_meta["author"],
-                "description": plugin_meta["description"],
-                "category": manifest["plugin"]["category"],
-                "tags": manifest["plugin"]["tags"],
-                "downloadUrl": plugin_download,
-                "format": "lua",
-                "sha256": digest(plugin_bytes),
-                "size": len(plugin_bytes),
-                "license": "MIT",
-                "lastUpdated": manifest["releasedAt"],
-                "featured": True,
-            }
-        ],
+        "plugins": plugin_records,
         "libraries": [
             {
                 "name": expected_library,
@@ -133,29 +155,34 @@ def build_files(output: Path) -> dict[PurePosixPath, bytes]:
         "name": manifest["packageName"],
         "version": version,
         "minClientVersion": manifest["minClientVersion"],
-        "plugin": {
-            "id": expected_plugin,
-            "source": f"plugins/{expected_plugin}.lua",
-            "sha256": digest(plugin_bytes),
-            "size": len(plugin_bytes),
-        },
-        "library": {
+        "plugins": [
+            {
+                "id": declared["id"],
+                "source": f"plugins/{declared['id']}.lua",
+                "sha256": digest(plugin_bytes),
+                "size": len(plugin_bytes),
+            }
+            for declared, _, plugin_bytes in plugin_sources
+        ],
+        "libraries": [{
             "name": expected_library,
             "source": f"libs/{expected_library}.lua",
             "sha256": digest(library_bytes),
             "size": len(library_bytes),
-        },
+        }],
         "note": "Package input only. Create the .mfp with MudForge Settings > Packages > Create Package.",
     }
 
     files = {
-        PurePosixPath("plugin-repo") / plugin_download: plugin_bytes,
         PurePosixPath("plugin-repo") / library_download: library_bytes,
         PurePosixPath("plugin-repo/plugins.json"): json_bytes(index),
-        PurePosixPath(f"native-package-input/plugins/{expected_plugin}.lua"): plugin_bytes,
         PurePosixPath(f"native-package-input/libs/{expected_library}.lua"): library_bytes,
         PurePosixPath("native-package-input/package-input.json"): json_bytes(package_input),
     }
+    for declared, _, plugin_bytes in plugin_sources:
+        plugin_name = declared["id"]
+        files[PurePosixPath(f"plugin-repo/files/{plugin_name}.lua")] = plugin_bytes
+        files[PurePosixPath(f"native-package-input/plugins/{plugin_name}.lua")] = plugin_bytes
     for relative, data in files.items():
         destination = output / relative
         destination.parent.mkdir(parents=True, exist_ok=True)
@@ -195,6 +222,7 @@ def verify_package(path: Path) -> None:
     if not path.is_file():
         raise BuildError(f"package not found: {path}")
     manifest = read_json(MANIFEST_PATH)
+    validate_manifest(manifest)
     with zipfile.ZipFile(path) as archive:
         names = safe_members(archive)
         if "world.json" in names:
@@ -206,10 +234,20 @@ def verify_package(path: Path) -> None:
             expected_key = "packageName" if key == "name" else key
             if package.get(key) != manifest.get(expected_key):
                 raise BuildError(f"package {key} differs from release manifest")
-        plugin_name = f"plugins/{manifest['plugin']['id']}.lua"
         library_name = f"libs/{manifest['library']['name']}.lua"
-        for member, source in ((plugin_name, ROOT / manifest["plugin"]["source"]),
-                               (library_name, ROOT / manifest["library"]["source"])):
+        expected_members = [(library_name, ROOT / manifest["library"]["source"])]
+        expected_members.extend(
+            (f"plugins/{plugin['id']}.lua", ROOT / plugin["source"])
+            for plugin in manifest["plugins"]
+        )
+        expected_names = {member for member, _ in expected_members}
+        distributed_names = {
+            name for name in names
+            if (name.startswith("plugins/") or name.startswith("libs/")) and name.endswith(".lua")
+        }
+        if distributed_names != expected_names:
+            raise BuildError(".mfp plugin/library membership differs from release manifest")
+        for member, source in expected_members:
             if member not in names:
                 raise BuildError(f".mfp is missing {member}")
             if archive.read(member) != source.read_bytes():

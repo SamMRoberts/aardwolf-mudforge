@@ -9,6 +9,7 @@ const root = path.resolve(import.meta.dirname, "..");
 const read = (relative) => fs.readFileSync(path.join(root, relative), "utf8");
 const harness = read("tests/harness.lua");
 const coreSource = read("src/plugins/aardwolf-core.lua");
+const chatSource = read("src/plugins/aardwolf-chat.lua");
 const librarySource = read("src/libs/aardwolf-core-api.lua");
 const referenceSource = read("examples/aardwolf-ui-consumer.lua");
 
@@ -26,14 +27,14 @@ function wrappedLibrary(variable) {
   return `local function ${variable}_loader()\n${librarySource}\nend\n${variable} = ${variable}_loader()`;
 }
 
-test("plugin, library, and reference consumer parse as Lua 5.1", () => {
-  for (const [name, source] of [["plugin", coreSource], ["library", librarySource], ["reference", referenceSource]]) {
+test("plugins, library, and reference consumer parse as Lua 5.1", () => {
+  for (const [name, source] of [["core plugin", coreSource], ["chat plugin", chatSource], ["library", librarySource], ["reference", referenceSource]]) {
     assert.doesNotThrow(() => luaparse.parse(source, { luaVersion: "5.1" }), name);
   }
 });
 
 test("copy guards use MudForge plugin-scope builtins", () => {
-  for (const [name, source] of [["plugin", coreSource], ["library", librarySource]]) {
+  for (const [name, source] of [["core plugin", coreSource], ["chat plugin", chatSource], ["library", librarySource]]) {
     assert.doesNotMatch(source, /seen\s*\[\s*value\s*\]/, `${name} must not key a seen table by another table`);
     assert.doesNotMatch(source, /\brawequal\s*\(/, `${name} must not call the unavailable rawequal global`);
   }
@@ -54,4 +55,12 @@ test("consumer API handshake, requests, events, storage, and missing-Core behavi
 
 test("reference consumer exercises managed HTML and canvas lifecycle", () => {
   runLua(`${harness}\n${wrappedLibrary("reference_core")}\nfunction require(name) if name == "aardwolf-core-api" then return reference_core end error("missing library " .. tostring(name)) end\n${referenceSource}\n${read("tests/reference_spec.lua")}`, "reference_spec.lua");
+});
+
+test("Aardwolf Chat routes, configures, persists, bounds, and cleans up", () => {
+  runLua(`${harness}\n${wrappedLibrary("chat_core")}\nfunction require(name) if name == "aardwolf-core-api" then return chat_core end error("missing library " .. tostring(name)) end\n${chatSource}\n${read("tests/chat_spec.lua")}`, "chat_spec.lua");
+});
+
+test("Aardwolf Chat recovers from consumer-first load order", () => {
+  runLua(`${harness}\n${wrappedLibrary("missing_chat_core")}\nfunction require(name) if name == "aardwolf-core-api" then return missing_chat_core end error("missing library " .. tostring(name)) end\n${chatSource}\n${read("tests/chat_missing_core_spec.lua")}`, "chat_missing_core_spec.lua");
 });
