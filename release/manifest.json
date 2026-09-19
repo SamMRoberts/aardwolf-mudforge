@@ -1,18 +1,28 @@
 {
-  "schemaVersion": 1,
+  "schemaVersion": 2,
   "name": "Aardwolf for MudForge",
   "description": "Clean-room Aardwolf framework and plugins for MudForge.",
-  "version": "0.3.0",
+  "version": "0.4.0",
   "releasedAt": "2026-09-19T00:00:00Z",
   "packageId": "com.samroberts.aardwolf-core",
   "packageName": "Aardwolf Core",
   "minClientVersion": "1.2.2454",
-  "plugin": {
-    "source": "src/plugins/aardwolf-core.lua",
-    "id": "aardwolf-core",
-    "category": "development",
-    "tags": ["aardwolf", "framework", "gmcp", "widgets", "theme"]
-  },
+  "plugins": [
+    {
+      "source": "src/plugins/aardwolf-core.lua",
+      "id": "aardwolf-core",
+      "category": "development",
+      "tags": ["aardwolf", "framework", "gmcp", "widgets", "theme"],
+      "featured": true
+    },
+    {
+      "source": "src/plugins/aardwolf-chat.lua",
+      "id": "aardwolf-chat",
+      "category": "ui-enhancement",
+      "tags": ["aardwolf", "chat", "gmcp", "widgets"],
+      "featured": true
+    }
+  ],
   "library": {
     "source": "src/libs/aardwolf-core-api.lua",
     "name": "aardwolf-core-api",

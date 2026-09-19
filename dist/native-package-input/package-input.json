@@ -2,19 +2,29 @@
   "formatVersion": 1,
   "packageId": "com.samroberts.aardwolf-core",
   "name": "Aardwolf Core",
-  "version": "0.3.0",
+  "version": "0.4.0",
   "minClientVersion": "1.2.2454",
-  "plugin": {
-    "id": "aardwolf-core",
-    "source": "plugins/aardwolf-core.lua",
-    "sha256": "d15aa0ce528c1d85066b963947c14cee3bdd04356a22088cd26c59b02b1e611a",
-    "size": 45197
-  },
-  "library": {
-    "name": "aardwolf-core-api",
-    "source": "libs/aardwolf-core-api.lua",
-    "sha256": "89485688ae5e2d9b036df52d135ebbe2aec77cf6c6dd677ffacdc021e5eaf332",
-    "size": 29256
-  },
+  "plugins": [
+    {
+      "id": "aardwolf-core",
+      "source": "plugins/aardwolf-core.lua",
+      "sha256": "fa24d4a2a027274c765230f67bf3dc7bf3b52a5d5c5b3f6204766a28ec6269ef",
+      "size": 45197
+    },
+    {
+      "id": "aardwolf-chat",
+      "source": "plugins/aardwolf-chat.lua",
+      "sha256": "eaaa8061400f67b91d104930d0428623f7d2c61d7a8a524ea05007e98b855eeb",
+      "size": 33962
+    }
+  ],
+  "libraries": [
+    {
+      "name": "aardwolf-core-api",
+      "source": "libs/aardwolf-core-api.lua",
+      "sha256": "e9b6a648cb1b79e0bd5e2bf94c1ddcf90cb165652e0cb6ed6f5a27c24b1d3a5f",
+      "size": 29256
+    }
+  ],
   "note": "Package input only. Create the .mfp with MudForge Settings > Packages > Create Package."
 }

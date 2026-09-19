@@ -6,7 +6,7 @@
     {
       "id": "aardwolf-core",
       "name": "Aardwolf Core",
-      "version": "0.3.0",
+      "version": "0.4.0",
       "author": "Sam Roberts",
       "description": "Shared Aardwolf data, managed windows, visual design, and diagnostics.",
       "category": "development",
@@ -19,8 +19,29 @@
       ],
       "downloadUrl": "files/aardwolf-core.lua",
       "format": "lua",
-      "sha256": "d15aa0ce528c1d85066b963947c14cee3bdd04356a22088cd26c59b02b1e611a",
+      "sha256": "fa24d4a2a027274c765230f67bf3dc7bf3b52a5d5c5b3f6204766a28ec6269ef",
       "size": 45197,
+      "license": "MIT",
+      "lastUpdated": "2026-09-19T00:00:00Z",
+      "featured": true
+    },
+    {
+      "id": "aardwolf-chat",
+      "name": "Aardwolf Chat",
+      "version": "0.4.0",
+      "author": "Sam Roberts",
+      "description": "Configurable receive-only Aardwolf chat tabs powered by Aardwolf Core.",
+      "category": "ui-enhancement",
+      "tags": [
+        "aardwolf",
+        "chat",
+        "gmcp",
+        "widgets"
+      ],
+      "downloadUrl": "files/aardwolf-chat.lua",
+      "format": "lua",
+      "sha256": "eaaa8061400f67b91d104930d0428623f7d2c61d7a8a524ea05007e98b855eeb",
+      "size": 33962,
       "license": "MIT",
       "lastUpdated": "2026-09-19T00:00:00Z",
       "featured": true
@@ -29,11 +50,11 @@
   "libraries": [
     {
       "name": "aardwolf-core-api",
-      "version": "0.3.0",
+      "version": "0.4.0",
       "author": "Sam Roberts",
       "description": "Consumer data and managed-window API for the Aardwolf Core MudForge plugin.",
       "downloadUrl": "libs/aardwolf-core-api.lua",
-      "sha256": "89485688ae5e2d9b036df52d135ebbe2aec77cf6c6dd677ffacdc021e5eaf332",
+      "sha256": "e9b6a648cb1b79e0bd5e2bf94c1ddcf90cb165652e0cb6ed6f5a27c24b1d3a5f",
       "size": 29256,
       "license": "MIT",
       "tags": [

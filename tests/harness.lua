@@ -8,6 +8,7 @@ TEST = {
   timers = {},
   nextTimer = 0,
   sentGMCP = {},
+  sentCommands = {},
   sendGMCPResult = true,
   widgets = {},
   nextWidget = 0,
@@ -19,7 +20,7 @@ TEST = {
   draws = {},
   tables = { world = {}, global = {} },
   loadedPlugins = {
-    { id = "aardwolf-core", name = "Aardwolf Core", version = "0.3.0", enabled = true },
+    { id = "aardwolf-core", name = "Aardwolf Core", version = "0.4.0", enabled = true },
     { id = "test-consumer", name = "Test Consumer", version = "1.0.0", enabled = true },
   },
 }
@@ -71,6 +72,11 @@ end
 function sendGMCP(package_name, data)
   table.insert(TEST.sentGMCP, { package = package_name, data = clone(data) })
   return TEST.sendGMCPResult
+end
+
+function send(command)
+  table.insert(TEST.sentCommands, tostring(command))
+  return true
 end
 
 function getSessionId() return TEST.sessionId end
@@ -156,7 +162,10 @@ function widgetInfo(id, info_type)
   if info_type == 20 then return id end
   return nil
 end
-function focusPrompt() TEST.focused = true end
+function focusPrompt(text)
+  TEST.focused = true
+  if text ~= nil then TEST.promptText = text end
+end
 
 function setActiveWidget(id) TEST.activeWidget = id end
 function getWidgetFont(id) return { family = "fira-code", size = 14, weight = "normal", css = "14px fira-code" } end

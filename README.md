@@ -10,8 +10,11 @@ This repository contains a clean-room Aardwolf plugin framework for
 - **Aardwolf Core API** (`aardwolf-core-api`) — the shared library future
   Aardwolf plugins use for dependency checks, events, snapshots, refreshes,
   namespaced persistence, managed windows, and shared visual resources.
+- **Aardwolf Chat** (`aardwolf-chat`) — a receive-only `comm.channel` consumer
+  with configurable overlapping tabs, bounded opt-in history, unread state,
+  and optional GMCP-only channel delivery.
 
-Version 0.3.0 requires MudForge 1.2.2454. Offline checks do not prove native
+Version 0.4.0 requires MudForge 1.2.2454. Offline checks do not prove native
 rendering, transport, or persistence; the native target remains MudForge
 1.2.2454 on macOS.
 
@@ -27,13 +30,16 @@ https://github.com/SamMRoberts/aardwolf-mudforge/tree/main/dist/plugin-repo
 ```
 
 Install the `aardwolf-core-api` library from the repository's Libraries view,
-then install and enable `Aardwolf Core` for each Aardwolf world.
+then install and enable `Aardwolf Core` and `Aardwolf Chat` for each Aardwolf
+world. Chat reports an actionable dependency error and recovers when Core is
+loaded after it.
 
 ### Atomic package
 
 The deterministic build stages the exact plugin and library sources under
 `dist/native-package-input`. The final `.mfp` must be created with MudForge's
-**Settings → Packages → Create Package** workflow and verified before it is
+**Settings → Packages → Create Package** workflow, selecting both plugins and
+the library, and verified before it is
 published. This repository does not disguise a hand-built ZIP as a validated
 MudForge package.
 
@@ -77,6 +83,19 @@ end
 ```
 
 See [docs/CORE.md](docs/CORE.md) for the complete contract.
+
+## Chat
+
+`awchat` opens the receive-only chat window and `awchat settings` opens its tab
+editor. The default All, Tell, Group, Clan, Newbie, and Gossip tabs can be
+renamed, reordered, removed, or extended with custom channel identifiers.
+Messages may appear in multiple matching tabs.
+
+History is memory-only by default. `awchat history on` opts into bounded
+per-world persistence. Main-console channel output also remains unchanged by
+default; `awchat takeover on` explicitly requests Aardwolf's GMCP-only channel
+mode and cleanup restores normal output. See [docs/CHAT.md](docs/CHAT.md) for
+the full commands, safety boundaries, and storage behavior.
 
 ## Managed windows
 
