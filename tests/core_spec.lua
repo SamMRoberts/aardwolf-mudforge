@@ -1,6 +1,8 @@
 init()
 TEST.assert_equal(TEST.nextWidget, 1, "one widget created")
 TEST.assert_equal(TEST.widgets["widget-1"].visible, false, "widget starts hidden")
+TEST.assert_true(string.find(TEST.widgets["widget-1"].properties.content, "aw%-root") ~= nil, "control center uses shared document")
+TEST.assert_equal(TEST.themeCalls, 0, "app theme is not registered automatically")
 TEST.assert_equal(#TEST.gmcpHandlers["Char.Vitals"], 1, "one vitals handler")
 init()
 TEST.assert_equal(TEST.nextWidget, 1, "duplicate init is ignored")
@@ -16,6 +18,29 @@ emit("aardwolf.core.consumer.declare", {
   packages = { Char = true, Comm = true },
 })
 TEST.assert_true(registration.ok, "consumer registration succeeds")
+TEST.assert_equal(registration.capabilities.ui.version, 1, "registration advertises UI contract")
+
+local ui_commands = {}
+on("aardwolf.core.ui.window.command", function(payload) table.insert(ui_commands, payload) end)
+emit("aardwolf.core.ui.window.declare", {
+  consumerId = "test-consumer",
+  name = "inventory",
+  title = "Inventory",
+  type = "html",
+  visible = false,
+})
+local ui_status = TEST.request("test-consumer", "status")
+TEST.assert_equal(ui_status.data.windows["test-consumer:inventory"].title, "Inventory", "managed window appears in status")
+TEST.assert_equal(TEST.widgets["widget-1"].bindings.windowTitle1, "Inventory", "managed window title uses binding")
+TEST.widgets["widget-1"].events.action({ action = "window-show-1" })
+TEST.assert_equal(ui_commands[#ui_commands].action, "show", "control center targets individual window")
+TEST.widgets["widget-1"].events.action({ action = "windows-hide-all" })
+TEST.assert_equal(ui_commands[#ui_commands].action, "hide", "control center hides all windows")
+emit("aardwolf.core.ui.window.state", { consumerId = "test-consumer", name = "inventory", visible = true })
+TEST.assert_equal(TEST.widgets["widget-1"].bindings.windowVisible1, "visible", "window visibility binding updates")
+TEST.widgets["widget-1"].events.action({ action = "apply-theme" })
+TEST.assert_equal(TEST.activeTheme, "aardwolf-dark", "theme applies only after explicit action")
+TEST.assert_nil(TEST.themes["aardwolf-dark"].terminalColors, "app theme leaves terminal colors untouched")
 
 TEST.connected = true
 onConnect("session-1")
@@ -40,11 +65,19 @@ local snapshot = TEST.request("test-consumer", "snapshot", { path = "char.vitals
 TEST.assert_true(snapshot.ok, "fresh snapshot succeeds")
 TEST.assert_equal(snapshot.data.normalized.hp, 100, "snapshot retains accepted data")
 
+TEST.fireGMCP("Char.Vitals", {
+  hp = 101,
+  future = { first = { value = 1 }, second = { value = 2 } },
+})
+snapshot = TEST.request("test-consumer", "snapshot", { path = "char.vitals" })
+TEST.assert_equal(snapshot.data.normalized.hp, 101, "ordinary nested GMCP tables do not look cyclic")
+TEST.assert_equal(snapshot.data.raw.future.second.value, 2, "nested unknown GMCP data is copied")
+
 TEST.fireGMCP("Char.Vitals", { hp = "100" })
 local rejected = TEST.request("test-consumer", "status")
 TEST.assert_equal(rejected.data.counters.rejected, 1, "invalid numeric field rejected")
 snapshot = TEST.request("test-consumer", "snapshot", { path = "char.vitals" })
-TEST.assert_equal(snapshot.data.normalized.hp, 100, "rejection preserves prior accepted data")
+TEST.assert_equal(snapshot.data.normalized.hp, 101, "rejection preserves prior accepted data")
 
 TEST.fireGMCP("Char.Base", {
   name = "Tester", ["class"] = "Warrior", subclass = "Soldier", race = "Human",
@@ -67,8 +100,11 @@ TEST.fireGMCP("Char.Worth", { gold = 1.5 })
 local deep = { value = "leaf" }
 for _ = 1, 9 do deep = { child = deep } end
 TEST.fireGMCP("Char.Vitals", { hp = 100, future = deep })
+local cyclic = {}
+cyclic.self = cyclic
+TEST.fireGMCP("Char.Vitals", { hp = 100, future = cyclic })
 local all_groups_status = TEST.request("test-consumer", "status")
-TEST.assert_equal(all_groups_status.data.counters.rejected, 7, "every invalid Char schema and raw limit rejected")
+TEST.assert_equal(all_groups_status.data.counters.rejected, 8, "every invalid Char schema, raw limit, and real cycle rejected")
 TEST.assert_nil(TEST.tables.world["aardwolf:core:char"], "live character data is not persisted")
 
 TEST.fireGMCP("Room.Info", {
@@ -134,6 +170,8 @@ TEST.widgets["widget-1"].events.action({ action = "hide" })
 TEST.assert_equal(TEST.widgets["widget-1"].visible, false, "widget hide action")
 TEST.widgets["widget-1"].events.action({ action = "log-debug" })
 TEST.assert_equal(TEST.tables.world["aardwolf:core:settings"].logLevel, "debug", "log level persisted")
+emit("aardwolf.core.ui.window.withdraw", { consumerId = "test-consumer", name = "inventory" })
+TEST.assert_nil(TEST.request("test-consumer", "status").data.windows["test-consumer:inventory"], "window withdrawal clears registry")
 
 cleanup()
 TEST.assert_nil(TEST.widgets["widget-1"], "cleanup destroys widget")

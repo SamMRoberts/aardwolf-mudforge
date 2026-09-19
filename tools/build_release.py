@@ -57,8 +57,8 @@ def validate_manifest(manifest: dict) -> None:
     version = manifest.get("version")
     if not isinstance(version, str) or not re.fullmatch(r"\d+\.\d+\.\d+", version):
         raise BuildError("release version must be semantic x.y.z")
-    if manifest.get("minClientVersion") != "1.2.0":
-        raise BuildError("minimum MudForge version must remain 1.2.0 for Core 0.1")
+    if manifest.get("minClientVersion") != "1.2.2454":
+        raise BuildError("minimum MudForge version must remain 1.2.2454 for Core 0.2")
 
 
 def build_files(output: Path) -> dict[PurePosixPath, bytes]:

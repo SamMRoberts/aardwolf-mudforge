@@ -12,9 +12,14 @@ TEST = {
   widgets = {},
   nextWidget = 0,
   echoes = {},
+  themes = {},
+  activeTheme = nil,
+  themeCalls = 0,
+  activeWidget = nil,
+  draws = {},
   tables = { world = {}, global = {} },
   loadedPlugins = {
-    { id = "aardwolf-core", name = "Aardwolf Core", version = "0.1.0", enabled = true },
+    { id = "aardwolf-core", name = "Aardwolf Core", version = "0.2.0", enabled = true },
     { id = "test-consumer", name = "Test Consumer", version = "1.0.0", enabled = true },
   },
 }
@@ -111,7 +116,14 @@ function echo(message) table.insert(TEST.echoes, tostring(message)) end
 function createWidget(config)
   TEST.nextWidget = TEST.nextWidget + 1
   local id = "widget-" .. tostring(TEST.nextWidget)
-  TEST.widgets[id] = { config = clone(config), properties = {}, events = {}, visible = config.visible ~= false, bindings = {} }
+  TEST.widgets[id] = {
+    config = clone(config), properties = {}, events = {}, visible = config.visible ~= false, bindings = {},
+    x = config.position and config.position.x or 200,
+    y = config.position and config.position.y or 150,
+    width = config.size and config.size.width or config.width or 400,
+    height = config.size and config.size.height or config.height or 300,
+    appearance = clone(config.appearance or {}),
+  }
   return id
 end
 
@@ -122,7 +134,51 @@ function hideWidget(id) TEST.widgets[id].visible = false end
 function destroyWidget(id) TEST.widgets[id] = nil end
 function setBoundValues(id, values) TEST.widgets[id].bindings = clone(values) end
 function registerWidgetEvent(id, name, callback) TEST.widgets[id].events[name] = callback end
+function unregisterWidgetEvent(id, name, callback)
+  if TEST.widgets[id] and (callback == nil or TEST.widgets[id].events[name] == callback) then
+    TEST.widgets[id].events[name] = nil
+  end
+end
+function setWidgetAppearance(id, appearance)
+  for key, value in pairs(appearance) do TEST.widgets[id].appearance[key] = clone(value) end
+end
+function widgetInfo(id, info_type)
+  local current = TEST.widgets[id]
+  if not current then return nil end
+  if info_type == 3 then return current.width end
+  if info_type == 4 then return current.height end
+  if info_type == 7 then return current.visible end
+  if info_type == 10 then return current.config.type end
+  if info_type == 15 then return current.x end
+  if info_type == 16 then return current.y end
+  if info_type == 18 then return current.config.owner or plugin and plugin.id end
+  if info_type == 19 then return current.config.title end
+  if info_type == 20 then return id end
+  return nil
+end
 function focusPrompt() TEST.focused = true end
+
+function setActiveWidget(id) TEST.activeWidget = id end
+function getWidgetFont(id) return { family = "fira-code", size = 14, weight = "normal", css = "14px fira-code" } end
+function clear(color) table.insert(TEST.draws, { kind = "clear", widget = TEST.activeWidget, color = color }) end
+function drawRect(x, y, width, height, color, stroke)
+  table.insert(TEST.draws, { kind = "rect", widget = TEST.activeWidget, x = x, y = y, width = width, height = height, color = color, stroke = stroke })
+end
+function drawText(value, x, y, color, font)
+  table.insert(TEST.draws, { kind = "text", widget = TEST.activeWidget, value = value, x = x, y = y, color = color, font = font })
+end
+
+function registerTheme(theme)
+  TEST.themeCalls = TEST.themeCalls + 1
+  TEST.themes[theme.id] = clone(theme)
+  return theme.id
+end
+
+function setTheme(theme_id)
+  if not TEST.themes[theme_id] then return false end
+  TEST.activeTheme = theme_id
+  return true
+end
 
 function saveTable(name, value, scope)
   local bucket = scope == "global" and TEST.tables.global or TEST.tables.world

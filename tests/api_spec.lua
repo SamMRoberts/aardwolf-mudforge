@@ -1,5 +1,13 @@
 local core = __LIBRARY_MODULE__
 
+local initial_tokens = core.ui.tokens()
+initial_tokens.colors.primary = "changed"
+TEST.assert_equal(core.ui.tokens().colors.primary, "#f3c969", "UI tokens are defensive copies")
+local initial_document, initial_document_error = core.ui.document([[<p data-mud-bind="message">Waiting</p>]], { css = ".sample{display:block}" })
+TEST.assert_nil(initial_document_error, "stateless UI document error")
+TEST.assert_true(string.find(initial_document, "aw%-root") ~= nil, "stateless UI document includes shared styles")
+TEST.assert_nil(core.ui.appTheme().terminalColors, "app theme does not override terminal colors")
+
 on("aardwolf.core.consumer.declare", function(payload)
   emit("aardwolf.core.consumer.registration", {
     consumerId = payload.consumerId,
@@ -7,8 +15,8 @@ on("aardwolf.core.consumer.declare", function(payload)
     code = payload.minProtocol <= 1 and nil or "unsupported-protocol",
     message = payload.minProtocol <= 1 and nil or "too new",
     protocol = 1,
-    version = "0.1.0",
-    apiVersion = "0.1.0",
+    version = "0.2.0",
+    apiVersion = "0.2.0",
   })
 end)
 
@@ -44,6 +52,9 @@ local ok, problem = core.init({
 })
 TEST.assert_true(ok, "API registration")
 TEST.assert_nil(problem, "API registration error")
+local no_ui_window, no_ui_error = core.ui.create({ name = "missing", title = "Missing", type = "html" })
+TEST.assert_nil(no_ui_window, "consumer without UI adapter cannot create windows")
+TEST.assert_equal(no_ui_error.code, "ui-unavailable", "missing UI adapter is actionable")
 
 local status, status_error = core.status()
 TEST.assert_nil(status_error, "status error")
@@ -111,6 +122,92 @@ other.storage.save("shared", 1, { value = 7 }, "global")
 TEST.assert_equal(TEST.tables.global["aardwolf:test-consumer:shared"].data.value, 42, "first consumer key preserved")
 TEST.assert_equal(TEST.tables.global["aardwolf:other-consumer:shared"].data.value, 7, "second consumer key isolated")
 other.cleanup()
+
+local ui_core = __UI_LIBRARY_MODULE__
+table.insert(TEST.loadedPlugins, { id = "ui-consumer", enabled = true })
+local ui_declares = {}
+local ui_states = {}
+local ui_withdraws = {}
+on("aardwolf.core.ui.window.declare", function(payload) table.insert(ui_declares, payload) end)
+on("aardwolf.core.ui.window.state", function(payload) table.insert(ui_states, payload) end)
+on("aardwolf.core.ui.window.withdraw", function(payload) table.insert(ui_withdraws, payload) end)
+local bad_ui_ok, bad_ui_error = ui_core.init({
+  pluginId = "ui-consumer", minProtocol = 1, packages = {}, on = on, off = off,
+  emit = emit, getLoadedPlugins = getLoadedPlugins, saveTable = saveTable, loadTable = loadTable,
+  ui = {},
+})
+TEST.assert_nil(bad_ui_ok, "incomplete UI adapter rejected")
+TEST.assert_equal(bad_ui_error.code, "invalid-ui-adapter", "incomplete UI adapter error")
+local ui_ok, ui_problem = ui_core.init({
+  pluginId = "ui-consumer", minProtocol = 1, packages = {}, on = on, off = off,
+  emit = emit, getLoadedPlugins = getLoadedPlugins, saveTable = saveTable, loadTable = loadTable,
+  ui = {
+    createWidget = createWidget, setWidgetProperty = setWidgetProperty,
+    showWidget = showWidget, hideWidget = hideWidget, destroyWidget = destroyWidget,
+    setBoundValues = setBoundValues, registerWidgetEvent = registerWidgetEvent,
+    unregisterWidgetEvent = unregisterWidgetEvent,
+    widgetInfo = widgetInfo, focusPrompt = focusPrompt,
+  },
+})
+TEST.assert_true(ui_ok, "UI consumer initializes")
+TEST.assert_nil(ui_problem, "UI consumer initialization error")
+local invalid_window, invalid_window_error = ui_core.ui.create({ name = "bad", title = "Bad", type = "html", size = { width = 20, height = 20 } })
+TEST.assert_nil(invalid_window, "invalid window geometry rejected")
+TEST.assert_equal(invalid_window_error.code, "invalid-window", "invalid geometry error")
+
+local html_window, html_error = ui_core.ui.create({
+  name = "panel", title = "Reference Panel", type = "html",
+  content = [[<button class="aw-button" data-mud-action="ping">Ping</button><span data-mud-bind="message">Waiting</span>]],
+  position = { x = 50, y = 60 }, size = { width = 420, height = 240 },
+})
+TEST.assert_nil(html_error, "HTML window creation error")
+TEST.assert_equal(html_window.widgetId, "widget-1", "HTML window returns widget id")
+TEST.assert_equal(TEST.widgets["widget-1"].visible, false, "managed windows default hidden")
+TEST.assert_true(string.find(TEST.widgets["widget-1"].properties.content, "aw%-button") ~= nil, "HTML content receives shared component styles")
+TEST.assert_equal(TEST.widgets["widget-1"].config.appearance.titleTextColor, "#f3c969", "managed chrome uses shared palette")
+TEST.assert_equal(ui_declares[#ui_declares].name, "panel", "window declares to Core")
+
+local duplicate, duplicate_error = ui_core.ui.create({ name = "panel", title = "Duplicate", type = "html" })
+TEST.assert_nil(duplicate, "duplicate window rejected")
+TEST.assert_equal(duplicate_error.code, "window-exists", "duplicate window error")
+local bound, bind_error = ui_core.ui.bind("panel", { message = "Bound text only" })
+TEST.assert_true(bound, "HTML bindings update")
+TEST.assert_nil(bind_error, "HTML binding error")
+TEST.assert_equal(TEST.widgets["widget-1"].bindings.message, "Bound text only", "bound value reaches widget API")
+local invalid_bound, invalid_bind_error = ui_core.ui.bind("panel", { message = { unsafe = true } })
+TEST.assert_nil(invalid_bound, "non-scalar binding rejected")
+TEST.assert_equal(invalid_bind_error.code, "invalid-window", "invalid binding error")
+local acted = nil
+ui_core.ui.on("panel", "action", function(event) acted = event.action end)
+TEST.widgets["widget-1"].events.action({ action = "ping" })
+TEST.assert_equal(acted, "ping", "managed action callback fires")
+TEST.assert_true(TEST.focused, "managed actions return focus to prompt")
+
+local canvas_window, canvas_error = ui_core.ui.create({ name = "canvas", title = "Reference Canvas", type = "canvas", visible = true })
+TEST.assert_nil(canvas_error, "canvas window creation error")
+TEST.assert_equal(canvas_window.widgetId, "widget-2", "canvas returns raw widget id")
+ui_core.ui.hide("canvas")
+TEST.assert_equal(TEST.widgets["widget-2"].visible, false, "hide controls managed canvas")
+ui_core.ui.toggle("canvas")
+TEST.assert_equal(TEST.widgets["widget-2"].visible, true, "toggle controls managed canvas")
+emit("aardwolf.core.ui.window.command", { consumerId = "ui-consumer", name = "panel", action = "show" })
+TEST.assert_equal(TEST.widgets["widget-1"].visible, true, "Core command shows targeted window")
+emit("aardwolf.core.ui.window.command", { consumerId = "other-consumer", name = "panel", action = "hide" })
+TEST.assert_equal(TEST.widgets["widget-1"].visible, true, "foreign Core command ignored")
+emit("aardwolf.core.ui.window.query", {})
+TEST.assert_true(#ui_states >= 2, "Core query refreshes managed window state")
+local declarations_before_discovery = #ui_declares
+emit("aardwolf.core.consumer.discover", { protocol = 1 })
+TEST.assert_true(#ui_declares >= declarations_before_discovery + 2, "Core rediscovery re-registers surviving windows")
+
+ui_core.ui.destroy("panel")
+TEST.assert_nil(TEST.widgets["widget-1"], "destroy releases HTML widget")
+local unknown, unknown_error = ui_core.ui.show("panel")
+TEST.assert_nil(unknown, "destroyed window is unknown")
+TEST.assert_equal(unknown_error.code, "unknown-window", "unknown window error")
+ui_core.cleanup()
+TEST.assert_nil(TEST.widgets["widget-2"], "cleanup destroys remaining managed windows")
+TEST.assert_true(#ui_withdraws >= 2, "destroy and cleanup withdraw managed windows")
 
 local core_missing = __NEW_LIBRARY_MODULE__
 TEST.loadedPlugins = { { id = "test-consumer", enabled = true } }
