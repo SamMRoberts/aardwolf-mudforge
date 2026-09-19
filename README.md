@@ -14,7 +14,7 @@ This repository contains a clean-room Aardwolf plugin framework for
   with configurable overlapping tabs, bounded opt-in history, unread state,
   and optional GMCP-only channel delivery.
 
-Version 0.4.0 requires MudForge 1.2.2454. Offline checks do not prove native
+Version 0.4.1 requires MudForge 1.2.2454. Offline checks do not prove native
 rendering, transport, or persistence; the native target remains MudForge
 1.2.2454 on macOS.
 

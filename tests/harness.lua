@@ -20,7 +20,7 @@ TEST = {
   draws = {},
   tables = { world = {}, global = {} },
   loadedPlugins = {
-    { id = "aardwolf-core", name = "Aardwolf Core", version = "0.4.0", enabled = true },
+    { id = "aardwolf-core", name = "Aardwolf Core", version = "0.4.1", enabled = true },
     { id = "test-consumer", name = "Test Consumer", version = "1.0.0", enabled = true },
   },
 }

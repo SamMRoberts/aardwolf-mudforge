@@ -1,4 +1,4 @@
-table.insert(TEST.loadedPlugins, { id = "aardwolf-chat", name = "Aardwolf Chat", version = "0.4.0", enabled = true })
+table.insert(TEST.loadedPlugins, { id = "aardwolf-chat", name = "Aardwolf Chat", version = "0.4.1", enabled = true })
 TEST.connected = true
 
 local declarations = 0
@@ -10,8 +10,8 @@ on("aardwolf.core.consumer.declare", function(payload)
     consumerId = payload.consumerId,
     ok = true,
     protocol = 1,
-    version = "0.4.0",
-    apiVersion = "0.4.0",
+    version = "0.4.1",
+    apiVersion = "0.4.1",
   })
 end)
 

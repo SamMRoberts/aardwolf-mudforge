@@ -33,6 +33,31 @@ test("plugins, library, and reference consumer parse as Lua 5.1", () => {
   }
 });
 
+test("Lua function parameters avoid strict-mode JavaScript binding names", () => {
+  const forbidden = new Set(["arguments", "eval"]);
+  const visit = (node, label) => {
+    if (!node || typeof node !== "object") return;
+    if ((node.type === "FunctionDeclaration" || node.type === "FunctionExpression") && Array.isArray(node.parameters)) {
+      for (const parameter of node.parameters) {
+        if (parameter.type === "Identifier") {
+          assert.equal(forbidden.has(parameter.name), false, `${label} parameter ${parameter.name} is invalid in strict mode`);
+        }
+      }
+    }
+    for (const value of Object.values(node)) {
+      if (Array.isArray(value)) {
+        for (const child of value) visit(child, label);
+      } else if (value && typeof value === "object") {
+        visit(value, label);
+      }
+    }
+  };
+
+  for (const [label, source] of [["core plugin", coreSource], ["chat plugin", chatSource], ["library", librarySource], ["reference", referenceSource]]) {
+    visit(luaparse.parse(source, { luaVersion: "5.1" }), label);
+  }
+});
+
 test("copy guards use MudForge plugin-scope builtins", () => {
   for (const [name, source] of [["core plugin", coreSource], ["chat plugin", chatSource], ["library", librarySource]]) {
     assert.doesNotMatch(source, /seen\s*\[\s*value\s*\]/, `${name} must not key a seen table by another table`);

@@ -1,6 +1,6 @@
 library = {
   name = "aardwolf-core-api",
-  version = "0.4.0",
+  version = "0.4.1",
   description = "Consumer data and managed-window API for the Aardwolf Core MudForge plugin.",
   author = "Sam Roberts",
   license = "MIT",
