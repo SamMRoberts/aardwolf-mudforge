@@ -1,0 +1,20 @@
+{
+  "formatVersion": 1,
+  "packageId": "com.samroberts.aardwolf-core",
+  "name": "Aardwolf Core",
+  "version": "0.1.0",
+  "minClientVersion": "1.2.0",
+  "plugin": {
+    "id": "aardwolf-core",
+    "source": "plugins/aardwolf-core.lua",
+    "sha256": "109daba6f25992c3d6b9a31a229e214e36d1c17ad5479994dd5c454836f32c17",
+    "size": 30042
+  },
+  "library": {
+    "name": "aardwolf-core-api",
+    "source": "libs/aardwolf-core-api.lua",
+    "sha256": "662b0d1579fb844709f2608364a636e0002f67f33c04ff30d2b7581adf186d8c",
+    "size": 12466
+  },
+  "note": "Package input only. Create the .mfp with MudForge Settings > Packages > Create Package."
+}
